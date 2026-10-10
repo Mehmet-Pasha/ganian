@@ -1,0 +1,215 @@
+// Arka plan analiz motoru: dialog kapansa bile iş devam eder.
+// Sayfa açık olduğu sürece çalışır; biten iş Analizler sekmesine kaydedilir.
+// (#9'daki toplu/toplantı kuyruğu da bu motoru kullanacak.)
+
+import { saveAnalysis } from "./analyses";
+import { buildRaceAnalysisPrompt, callGpt, collectRaceProfiles } from "./gpt";
+import type { Meeting, Race } from "./types";
+
+export type JobState = "running" | "done" | "error";
+
+export type Job = {
+  id: string;
+  raceKey: string;
+  meeting: Meeting;
+  race: Race;
+  model: string;
+  effort: string;
+  state: JobState;
+  progress: string;
+  result: string;
+  error: string;
+};
+
+const jobs = new Map<string, Job>();
+const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* yok say */
+    }
+  });
+}
+
+export function subscribeJobs(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
+export function raceKeyOf(meeting: Meeting, race: Race): string {
+  return `${meeting.key}::${race.id || race.no}`;
+}
+
+export function getJob(raceKey: string): Job | undefined {
+  return jobs.get(raceKey);
+}
+
+export function runningJobCount(): number {
+  let n = 0;
+  jobs.forEach((j) => {
+    if (j.state === "running") n += 1;
+  });
+  return n;
+}
+
+function notifyDone(title: string, body: string) {
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  } catch {
+    /* yok say */
+  }
+}
+
+export function startAnalysis(opts: {
+  apiKey: string;
+  meeting: Meeting;
+  race: Race;
+  model: string;
+  effort: string;
+}): Job {
+  const { apiKey, meeting, race, model, effort } = opts;
+  const raceKey = raceKeyOf(meeting, race);
+  const existing = jobs.get(raceKey);
+  if (existing && existing.state === "running") return existing;
+
+  const job: Job = {
+    id: `${Date.now()}-${race.id || race.no}`,
+    raceKey,
+    meeting,
+    race,
+    model,
+    effort,
+    state: "running",
+    progress: "Başlıyor…",
+    result: "",
+    error: "",
+  };
+  jobs.set(raceKey, job);
+  emit();
+  void runJobBody(job, apiKey, true);
+  return job;
+}
+
+async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<void> {
+  const { meeting, race, model, effort } = job;
+  try {
+    const enriched = await collectRaceProfiles(race, (done, total) => {
+      job.progress = `Veriler toplanıyor… ${done}/${total}`;
+      emit();
+    });
+    job.progress = `${model} analiz ediyor…`;
+    emit();
+    const prompt = buildRaceAnalysisPrompt(meeting, race, enriched);
+    const out = await callGpt(prompt, apiKey, model, effort);
+    job.result = out;
+    job.state = "done";
+    job.progress = "";
+    try {
+      saveAnalysis({
+        id: job.id,
+        savedAt: new Date().toISOString(),
+        dateLabel: race.date,
+        city: meeting.city,
+        meetingName: meeting.name,
+        meetingKey: meeting.key,
+        raceNo: race.no,
+        model,
+        effort,
+        analysis: out,
+        meeting,
+        race,
+      });
+    } catch {
+      /* depolama dolarsa analizi engelleme */
+    }
+    if (notify) notifyDone("Analiz hazır ✅", `${meeting.city} ${race.no}. koşu tamamlandı. Analizler sekmesinde.`);
+  } catch (e) {
+    job.state = "error";
+    job.error = e instanceof Error ? e.message : "Analiz başarısız";
+  }
+  emit();
+}
+
+// --- Toplantı kuyruğu: koşuları tek tek, sırayla analiz eder ---
+
+export type MeetingQueue = { total: number; finished: number; running: boolean };
+const queues = new Map<string, MeetingQueue>();
+
+export function getQueue(meetingKey: string): MeetingQueue | undefined {
+  return queues.get(meetingKey);
+}
+
+export function enqueueMeeting(opts: {
+  apiKey: string;
+  meeting: Meeting;
+  model: string;
+  effort: string;
+}): void {
+  const { apiKey, meeting, model, effort } = opts;
+  const existing = queues.get(meeting.key);
+  if (existing?.running) return;
+  const races = [...meeting.races];
+  const q: MeetingQueue = { total: races.length, finished: 0, running: true };
+  queues.set(meeting.key, q);
+  emit();
+  void (async () => {
+    for (const race of races) {
+      const raceKey = raceKeyOf(meeting, race);
+      const prev = jobs.get(raceKey);
+      if (prev?.state === "done") {
+        q.finished += 1;
+        emit();
+        continue;
+      }
+      if (prev && prev.state === "running") {
+        // Başka yerden başlamış işi bekle
+        await waitFor(prev);
+        q.finished += 1;
+        emit();
+        continue;
+      }
+      const job: Job = {
+        id: `${Date.now()}-${race.id || race.no}`,
+        raceKey,
+        meeting,
+        race,
+        model,
+        effort,
+        state: "running",
+        progress: "Sırada…",
+        result: "",
+        error: "",
+      };
+      jobs.set(raceKey, job);
+      emit();
+      await runJobBody(job, apiKey, false);
+      q.finished += 1;
+      emit();
+    }
+    q.running = false;
+    emit();
+    notifyDone(
+      "Toplantı analizi bitti ✅",
+      `${meeting.city}: ${q.finished}/${q.total} koşu hazır. Analizler sekmesinde.`,
+    );
+  })();
+}
+
+function waitFor(job: Job): Promise<void> {
+  return new Promise((resolve) => {
+    if (job.state !== "running") return resolve();
+    const off = subscribeJobs(() => {
+      if (job.state !== "running") {
+        off();
+        resolve();
+      }
+    });
+  });
+}

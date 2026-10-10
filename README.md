@@ -1,31 +1,36 @@
 # Ganian — Türkiye At Yarışları
 
 Türkiye genelindeki tüm at yarışı programlarını ve sonuçlarını gösteren, TJK'nın
-herkese açık kaynaklarından veri çeken, bağımsız (Grok/başka bir platforma bağımlı
-olmayan) bir web uygulaması.
+herkese açık kaynaklarından veri çeken, bağımsız bir web uygulaması.
 
-Bu proje daha önce Grok ile başlatılmış bir prototipin devamıdır: Grok'un TJK veri
-çekme mantığı incelenip hataları düzeltilerek, Grok'un platformuna özgü altyapıdan
-(kendi auth sistemi, kendi "multiplayer" servisi, kendi deploy mekanizması)
-tamamen bağımsız, sade bir Node/Express + React yığına yeniden kuruldu.
-
-**Proje adı:** Ganian (eski adı: Mahmuz)
+Bağımsız Node/Express + React/Vite yığını üzerine kurulmuştur; herhangi bir platforma
+bağımlılığı yoktur (kendi auth, kendi deploy altyapısı, üçüncü taraf servis gerektirmez).
 
 ## Özellikler
 
+### Program ve koşular
 - Günlük yarış programı: tüm Türkiye hipodromları (İstanbul, İzmir, Ankara, Bursa,
   Adana, Antalya, Kocaeli, Şanlıurfa, Elazığ, Diyarbakır) + yurt dışı toplantılar
   ayrı sekmede
 - Her koşuda: pist tipi (çim / kum / sentetik), mesafe, grup, ikramiye, hava durumu
   ve pist bilgisi (çim/kum derinliği, sıcaklık, nem)
-- At tıklanınca: yaş/renk/cinsiyet, HP (handikap puanı), baba/anne/anne baba,
-  antrenör ve sahip (profillerine link), kariyer istatistiği (dönem bazlı K/1/2/3/4/5
+- Koşu atları: program no, kulvar, kilo, ek kilo, apranti indirimi, HP, son 6'lı
+  form, ganyan, AGF yüzdesi, takılar, çiftiska durumu
+
+### At ve jokey profilleri
+- At profil: yaş/renk/cinsiyet, HP (handikap puanı), baba/anne/anne baba,
+  antrenör ve sahip (profillerine link), kariyer istatistiği (dönem bazlı K/1/2/3
   ve kazanç), **tüm geçmiş koşuları** — her birinde o gün taşıdığı kilo, HP, jokey,
   derece, kaçıncı olduğu ve **koşu videosunu izleme linki**
+- Jokey profil: lisans tipi, doğum tarihi, dönemsel istatistik, son 10 günün tüm
+  binişleri (kilo, HP, sıra, video)
+- Antrenör / sahip profil: TJK sayfasından ilişkili atların listesi
+
+### İstatistik ve grafikler
 - **HP puanı zaman grafiği** — atın handikap puanının koşu koşu nasıl değiştiğini
-  gösteren bir grafik
+  gösteren grafik
 - **Zemin ve mesafe performansı** — hem at hem jokey profilinde: çim/kum/sentetik
-  zeminlerdeki ve kısa/orta/uzun mesafelerdeki ayrı kazanma oranları, en az 3
+  zeminlerdeki ve kısa/orta/uzun mesafelerdeki ayrı kazanma oranları, en az 5
   koşu şartıyla belirlenen "en iyi zemin" ve "en iyi mesafe"
 - **Favori zemin/mesafe vurgusu** — günlük programda, bir at veya jokey o gün
   kendi en iyi olduğu zeminde ya da mesafede koşuyorsa ismi **sarı** renkte
@@ -34,27 +39,33 @@ tamamen bağımsız, sade bir Node/Express + React yığına yeniden kuruldu.
   birlikte kaç koşuya çıktığı ve kaçını kazandığı
 - **Kardeş atlar** — aynı babadan gelen diğer atların listesi (TJK'nın resmi
   pedigri sorgusu, bulunamazsa son 30 günün programından yedek arama)
+
+### Kupon ve karşılaştırma
+- **Kupon oluşturucu** — 18 farklı bahis türü (Ganyan, Plase, İkili, Üçlü, Tabela,
+  6'lı/7'li Ganyan vb.) için çok ayağlı veya tek ayağa kupon kurma; koşulardan
+  seçilen atları birleşik kupon olarak oluşturma ve takip listesine ekleme
 - **Karşılaştırma sayfası** — iki atı yan yana karşılaştırma (HP, istatistik,
   zemin/mesafe performansı, daha önce aynı koşuda yarışıp yarışmadıkları)
 - **Liderlik tablosu** — son 7/30/90 günde en çok kazanan jokey ve antrenörler
-- Jokey tıklanınca: aynı derinlikte profil — lisans tipi, doğum tarihi, dönemsel
-  istatistik, son 10 günün tüm binişleri (kilo, HP, sıra, video), zemin/mesafe
-  performansı
-- Antrenör / sahip profili: TJK sayfasından ilişkili atların listesi
-- Sonuçlar sayfası: sonuçlanmış koşuları podyum (1-2-3) görünümünde özetler
-- Arama: at / jokey / antrenör / sahip ismiyle canlı arama
+
+### Takip ve paylaşım
 - Favoriler: at ve jokeyleri takip listesine ekleme (cihazda saklanır, sunucuya
   gitmez) + **favori bir at bugün koşuyorsa ana sayfada hatırlatma banner'ı**
+- Arama: at / jokey / antrenör / sahip ismiyle canlı arama
+- Sonuçlar sayfası: sonuçlanmış koşuları podyum (1-2-3) görünümünde özetler
 - **Paylaş ve yazdır** — her at/jokey sayfasında bağlantı paylaşma (Web Share API,
   desteklenmiyorsa panoya kopyalama) ve yazdırmaya uygun görünüm
+
+### Arayüz
 - Tamamen mobil ve masaüstü uyumlu responsive tasarım
+- Terminal sınıfı performans: tüm TJK istekleri sunucu tarafında cache'lenir
 
 ## Mimari
 
 ```
 server/                Express API — TJK'ya server-side istek atar (CORS/robots
-                         engelini aşmak ve tarayıcıya anahtar/gizli bilgi
-                         sızdırmamak için istemci doğrudan TJK'ya istek atmaz)
+                         engelini aşmak ve güvenli olmayan bilgi sızdırmamak için
+                         istemci doğrudan TJK'ya istek atmaz)
   tjk/format.mjs         tarih, pist, mesafe kovası, isim yardımcı fonksiyonları
   tjk/parseHtml.mjs      TJK HTML sayfalarını (at/jokey/antrenör/sahip) parse eder
   tjk/stats.mjs          zemin/mesafe bazlı kazanma oranı hesaplama
@@ -65,7 +76,8 @@ server/                Express API — TJK'ya server-side istek atar (CORS/robot
 src/                    React (Vite + react-router-dom + Tailwind) frontend
   components/           paylaşılan UI parçaları (RaceCard, Silk, VideoDialog, ...)
   pages/                sayfalar (HomePage, ResultsPage, HorsePage, JockeyPage, ...)
-  lib/                  API istemcisi, tipler, tarih/biçim yardımcıları, favoriler
+  lib/                  API istemcisi, tipler, tarih/biçim yardımcıları, favoriler,
+                         kupon yapıları
 ```
 
 ### Veri akışı
@@ -145,11 +157,6 @@ sunucudan servis edilir. `PORT` ortam değişkeniyle portu değiştirebilirsiniz
   TJK sitesini güncellerse bu indekslerin yeniden ayarlanması gerekebilir. Kod,
   her bir alanın boş gelmesi durumunda çökmeyecek şekilde savunmacı yazıldı;
   ancak sıra tamamen değişirse yanlış sütuna denk gelebilir.
-- Bu ortamda `npm install` çalıştırılamadığı (dışa ağ erişimi kapalı) için gerçek
-  bir `npm run build` alınıp doğrulanamadı. Kod TypeScript kurallarına göre elle
-  ve bağımlılıksız bir `tsc` taramasıyla gözden geçirildi; kalan tek tip
-  uyarıları React'ın `key` özel prop'una dair olup `@types/react` kurulunca
-  otomatik çözülen bilinen bir durumdur.
 - TJK, otomatik erişime karşı `robots.txt` ile bazı yolları engelliyor olabilir;
   bu genelde arama motoru botlarını hedefler ve normal bir sunucu isteğini
   (bu projenin yaptığı gibi, gerçek bir tarayıcı User-Agent'ıyla) engellemez,
@@ -162,7 +169,7 @@ sunucudan servis edilir. `PORT` ortam değişkeniyle portu değiştirebilirsiniz
 - **Mesafe kovaları (kısa/orta/uzun) TJK'nın resmi bir sınıflandırması değil.**
   Türkiye'de yaygın koşu mesafeleri (1000-3200 m) göz önünde bulundurularak
   makul bir bölüm yapıldı: kısa ≤1400 m, orta 1401-2000 m, uzun >2000 m.
-  Gerçek bir jokeyin/uzmanın kullandığı eşiklerle birebir örtüşmeyebilir.
+  Gerçek bir jokeyin/kullanıcının kullandığı eşiklerle birebir örtüşmeyebilir.
 - **Favori zemin/mesafe vurgusu** için her toplantıdaki tüm atların TJK
   profilini çekmek gerekiyor; bu nedenle sarı vurgular sayfa ilk açıldığında
   değil, arka plan isteği tamamlandığında (birkaç saniye içinde) görünür.
@@ -174,29 +181,6 @@ sunucudan servis edilir. `PORT` ortam değişkeniyle portu değiştirebilirsiniz
   canlı test edilemedi. ID bulunamazsa otomatik olarak son 30 günün
   programından isim eşleştirmeli bir yedek listeye düşer (arayüzde bu durum
   ayrıca belirtilir).
-
-## Grok'un orijinal koduna göre yapılan düzeltmeler / eklemeler
-
-- `isDomesticMeeting` fonksiyonundaki ölü kod bloğu düzeltildi (yurt içi/yurt
-  dışı ayrımı önceden hiçbir zaman doğru çalışmıyordu).
-- Jokey profiline doğum tarihi, lisans tipi ve şehir bilgisi eklendi; önceden
-  yalnızca istatistik tablosu çekiliyordu.
-- Antrenör ve sahip profil sayfaları eklendi (TJK aynı sorgu şablonunu bu
-  kimlikler için de kullanıyor, önceden hiç kullanılmıyordu).
-- At profilinde antrenör/sahip/baba ID'leri hiç çekilmiyordu (hep boş
-  bırakılmıştı); artık bu linkler çıkarılıp ilgili profillere yönlendiriliyor.
-- HTML parse katmanına ikinci bir yakalama yöntemi (`dt/dd` etiket çiftleri)
-  eklendi; TJK sayfası `span.key/value` yerine tanım listesi kullanırsa da
-  veri boş dönmeyecek.
-- Favoriler (takip listesi) özelliği eklendi.
-- Arama artık antrenör ve sahipleri de kapsıyor.
-- **Zemin/mesafe bazlı kazanma oranı analizi** (hem at hem jokey için),
-  **HP puanı zaman grafiği**, **jokey-at ikilisi geçmişi**, **kardeş atlar**,
-  **jokey/antrenör liderlik tablosu**, **iki atı karşılaştırma sayfası**,
-  **favori at bugün koşuyor hatırlatması** ve **paylaş/yazdır** özellikleri
-  eklendi.
-- Tüm kod, Grok'un platformuna özgü altyapıdan (auth, multiplayer, kendi
-  deploy sistemi) bağımsız hale getirildi.
 
 ## Lisans
 

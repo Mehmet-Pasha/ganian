@@ -640,6 +640,9 @@ async function analizOpenrouter(prompt, model, effort, haveResearch) {
     { role: "system", content: ANALIZ_SISTEM_METNI },
     { role: "user", content: prompt },
   ];
+  // Devam turlarında parçalar BİRİKTİRİLİR — yalnızca son parça dönerse raporun
+  // başı kaybolur (canlı tespit: 8 sayfalık rapor "muyorum." diye ortadan başladı).
+  let full = "";
   const hata = (msg, status = 502) => Object.assign(new Error(msg), { status });
 
   for (let attempt = 1; attempt <= 6; attempt++) {
@@ -649,7 +652,7 @@ async function analizOpenrouter(prompt, model, effort, haveResearch) {
       body: JSON.stringify({
         model: orModel,
         messages: msgs,
-        max_tokens: 8000,
+        max_tokens: 16000,
         ...(!haveResearch && msgs.length <= 2 ? { plugins: [{ id: "web" }] } : {}),
         ...(useReason ? { reasoning: { effort: rEffort } } : {}),
       }),
@@ -665,12 +668,15 @@ async function analizOpenrouter(prompt, model, effort, haveResearch) {
       const choice = data?.choices?.[0];
       const piece = choice?.message?.content?.trim() || "";
       if (!piece) throw hata("OpenRouter boş yanıt döndü. Tekrar deneyin.");
+      // Satır sınırıyla birleştir: kesiği cümle ortasından gelirse de markdown
+      // yumuşak satırı zararsızdır; başlık birleşmesi ("\n" olmadan) olmaz.
+      full += (full ? "\n" : "") + piece;
       if (choice?.finish_reason === "length" && attempt < 6) {
         // Kesilen yanıt: kaldığı yerden devam (web eklentisi kapalı, maliyet sınırlı)
         msgs = [...msgs, { role: "assistant", content: piece }, { role: "user", content: "Cevabın uzunluk sınırında kesildi. Özetlemeden, baştan başlamadan ve hiçbir şeyi tekrar etmeden, kaldığın yerden doğrudan devam et." }];
         continue;
       }
-      return { text: piece, via: "openrouter" };
+      return { text: full, via: "openrouter" };
     }
     if (isRateLimit(text, r.status) && attempt < 6) {
       await sleep(retryDelayMs(text, attempt));

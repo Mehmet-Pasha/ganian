@@ -379,7 +379,21 @@ async function callOpenRouterDevice(
   const rEffort = effort === "xhigh" ? "high" : effort;
   const maxOut = model.toLowerCase().includes("3.5") ? 4000 : /^(gpt-6|gpt-5|o)/i.test(model) ? 16000 : 8192;
 
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  let msgs: { role: string; content: string }[] = [
+    {
+      role: "system",
+      content:
+        "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
+        "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir: geçmiş performans verilerini " +
+        "yorumlar, olasılıkları tartışır, hiçbir sonucu garanti etmezsin. " +
+        "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir; para miktarı tavsiye edilmez.",
+    },
+    { role: "user", content: prompt },
+  ];
+  // Devam turlarında parçalar biriktirilir (sunucu yolundakiyle aynı kural).
+  let full = "";
+
+  for (let attempt = 1; attempt <= 6; attempt++) {
     let res: Response;
     try {
       res = await fetch(OPENROUTER_URL, {
@@ -387,19 +401,9 @@ async function callOpenRouterDevice(
         headers,
         body: JSON.stringify({
           model,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
-                "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir: geçmiş performans verilerini " +
-                "yorumlar, olasılıkları tartışır, hiçbir sonucu garanti etmezsin. " +
-                "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir; para miktarı tavsiye edilmez.",
-            },
-            { role: "user", content: prompt },
-          ],
+          messages: msgs,
           max_tokens: maxOut,
-          ...(!haveResearch ? { plugins: [{ id: "web" }] } : {}),
+          ...(!haveResearch && msgs.length <= 2 ? { plugins: [{ id: "web" }] } : {}),
           ...(wantReason ? { reasoning: { effort: rEffort } } : {}),
         }),
       });
@@ -414,21 +418,32 @@ async function callOpenRouterDevice(
       } catch {
         throw new Error(`OpenRouter geçersiz yanıt döndü (HTTP ${res.status})`);
       }
-      const out =
-        (data as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content?.trim() || "";
-      if (!out) throw new Error("OpenRouter boş yanıt döndü. Tekrar deneyin.");
-      return out;
+      const choice = (data as { choices?: { message?: { content?: string }; finish_reason?: string }[] })?.choices?.[0];
+      const piece = choice?.message?.content?.trim() || "";
+      if (!piece) throw new Error("OpenRouter boş yanıt döndü. Tekrar deneyin.");
+      full += (full ? "\n" : "") + piece;
+      if (choice?.finish_reason === "length" && attempt < 6) {
+        msgs = [
+          ...msgs,
+          { role: "assistant", content: piece },
+          { role: "user", content: "Cevabın uzunluk sınırında kesildi. Özetlemeden, baştan başlamadan ve hiçbir şeyi tekrar etmeden, kaldığın yerden doğrudan devam et." },
+        ];
+        continue;
+      }
+      return full;
     }
     // reasoning desteklemeyen model: muhakemesiz bir kez daha dene
     if (wantReason && /reasoning|effort/i.test(text)) {
       continue;
     }
-    if (/429|rate limit|tokens per min|try again/i.test(text) && attempt < 4) {
+    if (/429|rate limit|tokens per min|try again/i.test(text) && attempt < 6) {
       await new Promise((r) => setTimeout(r, Math.min(2000 * attempt, 20000)));
       continue;
     }
     throw openAiError(text, res.status);
   }
+  // Turlar bitti ama bir şey biriktiyse onu dön (boşa gitmesin).
+  if (full) return full;
   throw new Error("OpenRouter isteği başarısız. Tekrar deneyin.");
 }
 

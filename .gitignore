@@ -9,3 +9,6 @@ npm-debug.log*
 
 # bot çalışma zamanı verisi (bahis/öğrenme kayıtları)
 server/data/
+
+# bot çalışma zamanı verisi (yanlış yol kalıntısı için de)
+data/

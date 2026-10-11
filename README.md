@@ -150,9 +150,29 @@ npm run server     # Express hem /api'yi hem dist/'i tek portta (8787) sunar
 Ardından `http://localhost:8787` adresinden tüm site (API + frontend) tek
 sunucudan servis edilir. `PORT` ortam değişkeniyle portu değiştirebilirsiniz.
 
-## Bilinen kısıtlar ve notlar
+## Sanal Bahis Botu (v1.2)
 
-- **TJK'nın HTML yapısı değişebilir.** `parseHtml.mjs` içindeki hücre indeksleri
+Uygulamada **an-be-an çalışan bir bahis botu** vardır (`server/bot.mjs`). Analiz ve
+araştırma hattına dokunmaz; onların çıktısını tüketir:
+
+- Her koşu için analistin rapor sonundaki **"## 🤖 Bot Verisi"** JSON bloğunu okur
+  (banko / sürpriz / bomba + sıralama + yüzde) ve **16 sanal bahis** kurar:
+  4 ganyan + 6 ikili (sıralı) + 6 üçlü (sıralı).
+- Sonuçlanan koşularda bahisleri değerlendirir; ilk-3 ve banko isabetini ölçer.
+- **Kaynak öğrenmesi:** araştırma özetindeki uzman tablosu, at isabeti bazında
+  domain istatistiğine çevrilir (server/data/bot/weights.json) ve araştırma
+  prompt'larına "GEÇMİŞ İSABET TABLOSU" olarak geri beslenir — sık tutturan
+  kaynağa Yüksek, tutmayan kaynağa Düşük ağırlık verme talimatı otomatik eklenir.
+- Site: `/bot` sayfası — duraklat/başlat, manuel tarama, isabet tabloları.
+- Ayarlar (.env): `BOT_ENABLED`, `BOT_MODEL` (varsayılan gpt-5-mini),
+  `BOT_EFFORT` (low), `BOT_DEPTH` (orta), `BOT_INTERVAL_MIN` (20),
+  `BOT_MAX_RACES_PER_DAY` (40), `BOT_START_WINDOW_H` (14).
+- Bahisler **sanaldır** (paper trading): TJK'nın yasal otomatik bahis API'si yok;
+  motor kayıt + öğrenme yapar, para harcamaz.
+- Prompt tek kaynağı `shared/prompt.ts`: istemci ve bot aynı talimat modülünü
+  kullanır (sürüklenme/drift önlenmiş).
+
+## Bilinen kısıtlar ve notlar- **TJK'nın HTML yapısı değişebilir.** `parseHtml.mjs` içindeki hücre indeksleri
   (`cells[8]`, `cells[14]` gibi) TJK'nın mevcut tablo sırasına göre yazıldı.
   TJK sitesini güncellerse bu indekslerin yeniden ayarlanması gerekebilir. Kod,
   her bir alanın boş gelmesi durumunda çökmeyecek şekilde savunmacı yazıldı;

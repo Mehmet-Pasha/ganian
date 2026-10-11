@@ -11,6 +11,7 @@ import { JockeyPage } from "@/pages/JockeyPage";
 import { PersonPage } from "@/pages/PersonPage";
 import { FavoritesPage } from "@/pages/FavoritesPage";
 import { LeaderboardPage } from "@/pages/LeaderboardPage";
+import { BotPage } from "@/pages/BotPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 export function App() {
@@ -19,6 +20,7 @@ export function App() {
       <ErrorBoundary>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/bot" element={<BotPage />} />
           <Route path="/sonuclar" element={<ResultsPage />} />
           <Route path="/at/:id" element={<HorsePage />} />
           <Route path="/jokey/:id" element={<JockeyPage />} />

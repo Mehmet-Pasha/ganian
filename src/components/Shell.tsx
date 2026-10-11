@@ -8,6 +8,7 @@ import { cn } from "@/lib/date";
 const NAV = [
   { to: "/", label: "Program" },
   { to: "/sonuclar", label: "Sonuçlar" },
+  { to: "/bot", label: "Bot" },
   { to: "/liderlik", label: "Liderlik" },
   { to: "/analizler", label: "Analizler" },
   { to: "/kuponlar", label: "Kuponlarım" },

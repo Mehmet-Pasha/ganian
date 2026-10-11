@@ -16,6 +16,8 @@ import {
   pedigreeBatch,
   searchNames,
 } from "./tjk/client.mjs";
+import { loadWeights, weightsInjectionBlock } from "./botEngine.mjs";
+import { initBot } from "./bot.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +33,8 @@ try {
     const k = t.slice(0, i).trim();
     let v = t.slice(i + 1).trim();
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    // satır içi yorum: tırnaksız değerde " #" sonrasını at (BOT_MODEL=gpt-5-mini # not)
+    else if (v.includes(" #")) v = v.split(" #")[0].trim();
     if (k && !(k in process.env)) process.env[k] = v;
   }
 } catch {
@@ -443,74 +447,93 @@ const NANO_GOREV_BIRLESTIR =
   "4) Aynı bilgiyi tekilleştir; çelişkiyi 'kaynaklar farklı söylüyor' notuyla koru. " +
   "Uydurma yasak; Türkçe, kompakt; ≤900 kelime.";
 
+// Araştırma katmanı — hem istemci uç noktası hem sunucu botu bu fonksiyonu
+// kullanır. Öğrenilmiş kaynak ağırlıkları burada prompt'lara enjekte edilir
+// (kendi kendini geliştiren döngünün bağlantı noktası).
+async function arastirmaYap({ depth, queries = [], sonarPrompts = [] }) {
+  const d = depth === "orta" ? "orta" : depth === "yuksek" ? "yuksek" : "dusuk";
+  const qs = (Array.isArray(queries) ? queries : [])
+    .map((q) => String(q ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  // Yüksek: 2 odaklı prompt (son-dakika, uzman). Orta: 1 birleşik prompt.
+  let prompts = (Array.isArray(sonarPrompts) ? sonarPrompts : [])
+    .map((p) => String(p ?? "").slice(0, 60000))
+    .filter(Boolean);
+  if (!qs.length && !prompts.length) return { depth: d, digest: "", raw: false, error: "Sorgu yok" };
+
+  // Anahtar yoksa otomatik güvenli düşüş: orta/yüksek → düşük; düşük için de
+  // Tavily yoksa araştırmasız devam edilir (istemci eski davranışa döner).
+  let used = d;
+  if ((used === "orta" || used === "yuksek") && !OPENROUTER_API_KEY) used = "dusuk";
+  if (used === "yuksek" && !TAVILY_API_KEY) used = "orta";
+  if (used === "dusuk" && !TAVILY_API_KEY) {
+    return { depth: used, digest: "", raw: false, error: "TAVILY_API_KEY tanımlı değil", code: "NO_RESEARCH_KEY" };
+  }
+
+  // Öğrenilmiş kaynak isabetlerini prompt'lara ekle (bot ölçümü → araştırmacı).
+  const enjeksiyon = weightsInjectionBlock(loadWeights());
+  if (enjeksiyon) prompts = prompts.map((p) => p + "\n" + enjeksiyon);
+
+
+  try {
+    if (used === "orta") {
+      const digest = await sonarResearch(prompts[0]);
+      return { depth: used, digest };
+    }
+    if (used === "yuksek") {
+      // İki odaklı çağrı paralel; biri boş döndüğünede diğerinin çıktısı yeter.
+      const [sonDakika, uzman] = await Promise.all(prompts.map((p) => sonarResearch(p).catch(() => "")));
+      const joined = [sonDakika, uzman].filter(Boolean).join("\n\n---\n\n");
+      // Tavily ham sonuçları da kat (domain hedefli — Sonar'ın kaçırabildiği Türkçe siteler).
+      const tavilyBlock = TAVILY_API_KEY ? await buildTavilyDigest(qs).catch(() => "") : "";
+      const merged = [joined, tavilyBlock].filter(Boolean).join("\n\n---\n\n");
+      const digest = merged ? await nanoSentez(NANO_GOREV_BIRLESTIR, merged, 3000) : "";
+      return {
+        depth: used,
+        digest: digest || merged,
+        raw: !digest && Boolean(merged),
+      };
+    }
+    // dusuk: Tavily + nano özet; nano başarısızsa (kota vb.) ham blok + raw
+    // bayrağı gider — istemci kendi anahtarıyla nano özeti dener.
+    const tavilyBlock = await buildTavilyDigest(qs).catch(() => "");
+    const digest = tavilyBlock ? await nanoSentez(NANO_GOREV_TAVILY, tavilyBlock, 2000) : "";
+    return { depth: used, digest: digest || tavilyBlock, raw: !digest && Boolean(tavilyBlock) };
+  } catch (err) {
+    return { depth: used, digest: "", raw: false, error: err instanceof Error ? err.message : "Araştırma başarısız" };
+  }
+}
+
 app.post("/api/analiz/arastirma", async (req, res) => {
   const depth = req.body?.depth === "orta" ? "orta" : req.body?.depth === "yuksek" ? "yuksek" : "dusuk";
   const queries = (Array.isArray(req.body?.queries) ? req.body.queries : [])
     .map((q) => String(q ?? "").trim())
     .filter(Boolean)
     .slice(0, 6);
-  // Yüksek: 2 odaklı prompt (son-dakika, uzman). Orta: 1 birleşik prompt.
   const sonarPrompts = (Array.isArray(req.body?.sonarPrompts) ? req.body.sonarPrompts : [])
     .map((p) => String(p ?? "").slice(0, 60000))
     .filter(Boolean);
   if (!queries.length && !sonarPrompts.length) return res.status(400).json({ error: "Sorgu yok", digest: "" });
-
-  // Anahtar yoksa otomatik güvenli düşüş: orta/yüksek → düşük; düşük için de
-  // Tavily yoksa istemci analizini araştırmadan devam eder.
-  let used = depth;
-  if ((used === "orta" || used === "yuksek") && !OPENROUTER_API_KEY) used = "dusuk";
-  if (used === "yuksek" && !TAVILY_API_KEY) used = "orta";
-  if (used === "dusuk" && !TAVILY_API_KEY) {
-    return res.status(501).json({ error: "TAVILY_API_KEY tanımlı değil", code: "NO_RESEARCH_KEY", digest: "" });
-  }
-
-  try {
-    if (used === "orta") {
-      const digest = await sonarResearch(sonarPrompts[0]);
-      return res.json({ depth: used, digest });
-    }
-    if (used === "yuksek") {
-      // İki odaklı çağrı paralel; biri boş döndüğünede diğerinin çıktısı yeter.
-      const [sonDakika, uzman] = await Promise.all(sonarPrompts.map((p) => sonarResearch(p).catch(() => "")));
-      const joined = [sonDakika, uzman].filter(Boolean).join("\n\n---\n\n");
-      // Tavily ham sonuçları da kat (domain hedefli — Sonar'ın kaçırabildiği Türkçe siteler).
-      const tavilyBlock = TAVILY_API_KEY ? await buildTavilyDigest(queries).catch(() => "") : "";
-      const merged = [joined, tavilyBlock].filter(Boolean).join("\n\n---\n\n");
-      const digest = merged ? await nanoSentez(NANO_GOREV_BIRLESTIR, merged, 3000) : "";
-      return res.json({
-        depth: used,
-        digest: digest || merged,
-        raw: !digest && Boolean(merged),
-      });
-    }
-    // dusuk: Tavily + nano özet; nano başarısızsa (kota vb.) ham blok + raw
-    // bayrağı gider — istemci kendi anahtarıyla nano özeti dener.
-    const tavilyBlock = await buildTavilyDigest(queries).catch(() => "");
-    const digest = tavilyBlock ? await nanoSentez(NANO_GOREV_TAVILY, tavilyBlock, 2000) : "";
-    return res.json({ depth: used, digest: digest || tavilyBlock, raw: !digest && Boolean(tavilyBlock) });
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "Araştırma başarısız", digest: "" });
-  }
+  const data = await arastirmaYap({ depth, queries, sonarPrompts });
+  if (data.code === "NO_RESEARCH_KEY") return res.status(501).json({ error: data.error, code: data.code, digest: "" });
+  if (data.error && !data.digest) return res.status(400).json({ error: data.error, digest: "" });
+  res.json({ depth: data.depth, digest: data.digest, raw: data.raw });
 });
 
-app.post("/api/analiz", async (req, res) => {
-  if (!OPENAI_API_KEY) {
-    return res.status(501).json({ error: "Sunucuda API anahtarı yok (OPENAI_API_KEY tanımlı değil)", code: "NO_SERVER_KEY" });
-  }
-  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
-  let model = typeof req.body?.model === "string" && req.body.model.trim() ? req.body.model.trim() : "gpt-5.6-sol";
-  let effort = typeof req.body?.effort === "string" && req.body.effort.trim() ? req.body.effort.trim() : "low";
-  if (!prompt || prompt.length < 50) return res.status(400).json({ error: "Geçersiz prompt" });
-  if (prompt.length > 200000) return res.status(413).json({ error: "Prompt çok büyük" });
-  if (model.length > 80 || /[^A-Za-z0-9._:-]/.test(model)) return res.status(400).json({ error: "Geçersiz model" });
+// ---------------------------------------------------------------------------
+// Analiz çekirdeği: istemci uç noktası VE bot aynı fonksiyonu kullanır.
+// OpenAI anahtarı 401/403/429/kota verirse (varsa) OpenRouter'a otomatik düşer.
+// ---------------------------------------------------------------------------
 
-  // GPT-6 Astra none effort desteklemez
-  if (/^gpt-6/i.test(model) && effort === "none") effort = "low";
+const ANALIZ_SISTEM_METNI =
+  "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
+  "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir: geçmiş performans verilerini " +
+  "yorumlar, olasılıkları tartışır, hiçbir sonucu garanti etmezsin. Yanıtların gazetecilik ve " +
+  "istatistik çerçevesindedir; para miktarı tavsiye etmez, bahis oynatmazsın. " +
+  "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir.";
 
-  // İstemci araştırma özetini prompt'a eklediyse (haveResearch) modelin kendi
-  // web_search aracını kapatırız — çifte arama ücreti olmasın.
-  const haveResearch = req.body?.haveResearch === true;
-
+async function analizOpenai(prompt, model, effort, haveResearch) {
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -518,6 +541,7 @@ app.post("/api/analiz", async (req, res) => {
   const low = model.toLowerCase();
   const canReason = /^(gpt-6([.-]|$)|gpt-5([.-]|$)|o[134](-|mini|$))/.test(low) && !low.includes("chat");
   const maxOut = low.includes("3.5") ? 4000 : /^(gpt-6|gpt-5|o)/i.test(model) ? 16000 : 8192;
+  const hata = (msg, status = 502) => Object.assign(new Error(msg), { status });
 
   try {
     for (let attempt = 1; attempt <= 4; attempt++) {
@@ -526,12 +550,7 @@ app.post("/api/analiz", async (req, res) => {
         headers,
         body: JSON.stringify({
           model,
-          instructions:
-            "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
-          "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir: geçmiş performans verilerini " +
-          "yorumlar, olasılıkları tartışır, hiçbir sonucu garanti etmezsin. Yanıtların gazetecilik ve " +
-          "istatistik çerçevesindedir; para miktarı tavsiye etmez, bahis oynatmazsın. " +
-          "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir.",
+          instructions: ANALIZ_SISTEM_METNI,
           input: prompt,
           ...(haveResearch ? {} : { tools: [{ type: "web_search" }] }),
           ...(canReason ? { reasoning: { effort } } : {}),
@@ -544,10 +563,10 @@ app.post("/api/analiz", async (req, res) => {
         try {
           data = text ? JSON.parse(text) : null;
         } catch {
-          return res.status(502).json({ error: `GPT geçersiz yanıt döndü (HTTP ${r.status})` });
+          throw hata(`GPT geçersiz yanıt döndü (HTTP ${r.status})`);
         }
         const out = extractResponsesText(data);
-        if (out) return res.json({ text: out, model, via: "responses" });
+        if (out) return { text: out, via: "responses" };
         break; // boş yanıt: chat'e düş
       }
       if (isRateLimit(text, r.status) && attempt < 4) {
@@ -558,7 +577,7 @@ app.post("/api/analiz", async (req, res) => {
         // tool/effort uyumsuzluğu değilse gerçek hatayı dön; değilse chat fallback'e düş
         if (!/tool|web_search|invalid|not supported|unknown|reasoning|effort|rate limit|tokens per min|try again/i.test(text)) {
           console.error(`[analiz] responses hatası (${r.status}):`, text.slice(0, 300));
-          return res.status(502).json({ error: openAiErrorText(text, r.status) });
+          throw hata(openAiErrorText(text, r.status));
         }
         console.error(`[analiz] responses tool uyumsuzluğu, chat yedeğine düşülüyor (${r.status}):`, text.slice(0, 300));
       } else {
@@ -566,53 +585,175 @@ app.post("/api/analiz", async (req, res) => {
       }
       break;
     }
-  } catch {
-    /* chat fallback'e düş */
+  } catch (err) {
+    // anahtar/kota hatası yukarı taşınır (analizYap sağlayıcı değiştirir); gerisi chat'e düşer
+    if (err?.status) throw err;
   }
 
+  let chat = null;
+  let chatText = "";
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    chat = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: ANALIZ_SISTEM_METNI },
+          { role: "user", content: prompt },
+        ],
+        max_completion_tokens: maxOut,
+      }),
+    });
+    chatText = await chat.text();
+    if (chat.ok) break;
+    if (isRateLimit(chatText, chat.status) && attempt < 4) {
+      await sleep(retryDelayMs(chatText, attempt));
+      continue;
+    }
+    break;
+  }
+  if (!chat.ok) throw hata(openAiErrorText(chatText, chat.status));
+  let chatData = null;
   try {
-    let chat = null;
-    let chatText = "";
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      chat = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content:
-              "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
-              "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir. " +
-              "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir; para miktarı tavsiye edilmez.",
-            },
-            { role: "user", content: prompt },
-          ],
-          max_completion_tokens: maxOut,
-        }),
-      });
-      chatText = await chat.text();
-      if (chat.ok) break;
-      if (isRateLimit(chatText, chat.status) && attempt < 4) {
-        await sleep(retryDelayMs(chatText, attempt));
+    chatData = chatText ? JSON.parse(chatText) : null;
+  } catch {
+    throw hata(`GPT geçersiz yanıt döndü (HTTP ${chat.status})`);
+  }
+  const out = chatData?.choices?.[0]?.message?.content?.trim() || "";
+  if (!out) throw hata("GPT boş yanıt döndü. Tekrar deneyin.");
+  return { text: out, via: "chat" };
+}
+
+async function analizOpenrouter(prompt, model, effort, haveResearch) {
+  // Model ID sağlayıcı öneki taşımıyorsa ekle (bot gpt-… yazabilir).
+  const orModel = model.includes("/") || model.includes(":") ? model : `openai/${model}`;
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    "HTTP-Referer": "https://ganian.com",
+    "X-Title": "Ganian",
+  };
+  const rEffort = effort === "xhigh" ? "high" : effort;
+  let useReason = !/^(none|minimal)$/i.test(effort) && /^(gpt-5|gpt-6|o[134])/i.test(orModel.split("/")[1] || orModel);
+  let msgs = [
+    { role: "system", content: ANALIZ_SISTEM_METNI },
+    { role: "user", content: prompt },
+  ];
+  const hata = (msg, status = 502) => Object.assign(new Error(msg), { status });
+
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: orModel,
+        messages: msgs,
+        max_tokens: 8000,
+        ...(!haveResearch && msgs.length <= 2 ? { plugins: [{ id: "web" }] } : {}),
+        ...(useReason ? { reasoning: { effort: rEffort } } : {}),
+      }),
+    });
+    const text = await r.text();
+    if (r.ok) {
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw hata(`OpenRouter geçersiz yanıt döndü (HTTP ${r.status})`);
+      }
+      const choice = data?.choices?.[0];
+      const piece = choice?.message?.content?.trim() || "";
+      if (!piece) throw hata("OpenRouter boş yanıt döndü. Tekrar deneyin.");
+      if (choice?.finish_reason === "length" && attempt < 6) {
+        // Kesilen yanıt: kaldığı yerden devam (web eklentisi kapalı, maliyet sınırlı)
+        msgs = [...msgs, { role: "assistant", content: piece }, { role: "user", content: "Cevabın uzunluk sınırında kesildi. Özetlemeden, baştan başlamadan ve hiçbir şeyi tekrar etmeden, kaldığın yerden doğrudan devam et." }];
         continue;
       }
-      break;
+      return { text: piece, via: "openrouter" };
     }
-    if (!chat.ok) return res.status(502).json({ error: openAiErrorText(chatText, chat.status) });
-    let chatData = null;
-    try {
-      chatData = chatText ? JSON.parse(chatText) : null;
-    } catch {
-      return res.status(502).json({ error: `GPT geçersiz yanıt döndü (HTTP ${chat.status})` });
+    if (isRateLimit(text, r.status) && attempt < 6) {
+      await sleep(retryDelayMs(text, attempt));
+      continue;
     }
-    const out = chatData?.choices?.[0]?.message?.content?.trim() || "";
-    if (!out) return res.status(502).json({ error: "GPT boş yanıt döndü. Tekrar deneyin." });
-    return res.json({ text: out, model, via: "chat" });
-  } catch (err) {
-    return res.status(502).json({ error: err instanceof Error ? err.message : "Analiz başarısız" });
+    if (useReason && /reasoning|effort/i.test(text)) {
+      useReason = false;
+      continue;
+    }
+    throw hata(openAiErrorText(text, r.status));
   }
+  throw hata("OpenRouter isteği başarısız. Tekrar deneyin.");
+}
+
+async function analizYap({ prompt, model, effort, haveResearch, provider }) {
+  const openaiOk = Boolean(OPENAI_API_KEY);
+  const orOk = Boolean(OPENROUTER_API_KEY);
+  if (!openaiOk && !orOk) {
+    throw Object.assign(new Error("Sunucuda API anahtarı yok (OPENAI_API_KEY ya da OPENROUTER_API_KEY tanımlı değil)"), {
+      status: 501,
+      code: "NO_SERVER_KEY",
+    });
+  }
+  let prov =
+    provider === "openrouter" ? "openrouter" :
+    provider === "openai" ? "openai" :
+    openaiOk ? "openai" : "openrouter";
+  const dene = (p) => (p === "openai" ? analizOpenai(prompt, model, effort, haveResearch) : analizOpenrouter(prompt, model, effort, haveResearch));
+  try {
+    return { ...(await dene(prov)), provider: prov };
+  } catch (err) {
+    const anahtarHatasi = /401|403|429|insufficient|no credits|quota|kota/i.test(err?.message || "");
+    const other = prov === "openai" ? "openrouter" : "openai";
+    const otherOk = other === "openai" ? openaiOk : orOk;
+    if (anahtarHatasi && otherOk) {
+      console.error(`[analiz] ${prov} anahtar/kota hatası, ${other} yedeğine geçiliyor:`, (err?.message || "").slice(0, 160));
+      return { ...(await dene(other)), provider: other };
+    }
+    throw err;
+  }
+}
+
+app.post("/api/analiz", async (req, res) => {
+  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+  const model = typeof req.body?.model === "string" && req.body.model.trim() ? req.body.model.trim() : "gpt-5.6-sol";
+  let effort = typeof req.body?.effort === "string" && req.body.effort.trim() ? req.body.effort.trim() : "low";
+  if (!prompt || prompt.length < 50) return res.status(400).json({ error: "Geçersiz prompt" });
+  if (prompt.length > 200000) return res.status(413).json({ error: "Prompt çok büyük" });
+  if (model.length > 120 || /[^A-Za-z0-9._:/-]/.test(model)) return res.status(400).json({ error: "Geçersiz model" });
+
+  // GPT-6 Astra none effort desteklemez
+  if (/^gpt-6/i.test(model) && effort === "none") effort = "low";
+
+  // İstemci araştırma özetini prompt'a eklediyse (haveResearch) modelin kendi
+  // web_search aracını kapatırız — çifte arama ücreti olmasın.
+  const haveResearch = req.body?.haveResearch === true;
+  const provider = req.body?.provider === "openrouter" ? "openrouter" : req.body?.provider === "openai" ? "openai" : "";
+
+  try {
+    const data = await analizYap({ prompt, model, effort, haveResearch, provider });
+    res.json(data);
+  } catch (err) {
+    const status = Number(err?.status) || 502;
+    res.status(status).json({ error: err instanceof Error ? err.message : "Analiz başarısız", code: err?.code });
+  }
+});
+
+// An-be-an bahis botu (sanal): analiz + araştırma çıktısını tüketir, bahis
+// kurar, sonuçları ölçer, kaynak ağırlıklarını öğrenir. Kapatmak için .env:
+// BOT_ENABLED=0
+const BOT_ACIK = (process.env.BOT_ENABLED ?? "1").trim() !== "0";
+initBot({
+  app,
+  helpers: {
+    loadDayCard,
+    loadHorse,
+    loadJockey,
+    loadLeaderboard,
+    pedigreeBatch,
+    arastirmaYap,
+    analizYap,
+  },
+  ...(BOT_ACIK ? {} : { pasif: true }),
 });
 
 // Üretimde derlenmiş frontend'i sun

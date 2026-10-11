@@ -13,6 +13,7 @@ import {
   buildResearchQueries,
   callGpt,
   collectRaceProfiles,
+  extractBotVeri,
   getArastirmaDerinlik,
   nanoSentezCihaz,
 } from "./gpt";
@@ -177,6 +178,33 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
     job.result = out;
     job.state = "done";
     job.progress = "";
+
+    // Bot hattı: analistin sonundaki "## 🤖 Bot Verisi" JSON'unu sunucuya
+    // gönder; bot sanal bahis kurar + kaynakları kaydeder (sonuç sonrası
+    // isabet ölçümü bununla öğrenilir). Bot kapalıysa sunucu yine kaydeder.
+    try {
+      const botVeri = extractBotVeri(out);
+      if (botVeri) {
+        await fetch("/api/bot/veri", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            raceKey: raceKeyOf(meeting, race),
+            dateIso: race.date,
+            meetingKey: meeting.key,
+            raceNo: race.no,
+            city: meeting.city,
+            model,
+            botVeri,
+            digest: arastirmaVerisi,
+            raceHorses: race.horses.map((h) => ({ no: h.number, name: h.name, agfRank: h.agfRank })),
+          }),
+        });
+      }
+    } catch {
+      /* bot kaydı opsiyonel */
+    }
+
     try {
       saveAnalysis({
         id: job.id,

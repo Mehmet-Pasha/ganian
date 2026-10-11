@@ -87,7 +87,7 @@ export function getPedigreeBatch(ids: string[]): Promise<Record<string, Pedigree
 export async function postResearch(input: {
   depth: string;
   queries: string[];
-  sonarPrompt: string;
+  sonarPrompts: string[];
 }): Promise<{ depth: string; digest: string; raw: boolean }> {
   const empty = { depth: input.depth, digest: "", raw: false };
   let res: Response;

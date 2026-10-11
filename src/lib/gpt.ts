@@ -160,24 +160,27 @@ kurar, sonra piyasadaki uzman görüşleriyle karşılaştırır, tartar ve niha
 # ZAMAN VE DERİNLİK POLİTİKASI
 
 Acele etme. Süre kısıtın yok.
-- Araştırmayı yarıda bırakma, "yeterli" görünen ilk sonuçla yetinme.
-- Gerekiyorsa aynı konu için birden fazla arama yap, farklı kelimelerle tekrar dene.
 - Analizi kısaltmak için bir başlığı atlama. Kısa kesmek yerine doğru ve eksiksiz yaz.
-- Uzman görüşü taramasında hedef sayıya ulaşmadan analize geçme.
+- Derinlik senin muhakeme kalitenle ilgilidir: veriyi sorgulayan, çelişkiyi yakalayan,
+  tempo senaryosunu üç kez düşünen bir analist ol. Web'de arama yapman beklenmiyor —
+  araştırma özetini KULLAN, onu tekrar üretmeye çalışma.
 
 ---
 
 # ÇALIŞMA SIRASI (BU SIRAYI BOZMA)
 
-**Aşama A — Bağımsız analiz:** Önce yalnızca site verisi + Bölüm 2 araştırmasıyla
-kendi görüşünü oluştur. Kendi 1-2-3-4 sıralamanı ve banko adayını zihninde belirle.
-Bu aşamada henüz başka analistlerin tahminlerine BAKMA.
+**Aşama A — Bağımsız analiz:** Önce yalnızca site verisiyle (At/Jokey blokları +
+hava/pist) kendi görüşünü oluştur. Kendi 1-2-3-4 sıralamanı ve banko adayını
+zihninde belirle. Bu aşamada araştırma verisine ve başka analistlerin
+tahminlerine BAKMA.
 
-**Aşama B — Uzman taraması:** Bölüm 3'ü uygula; en az 10 güvenilir analistin tahminini topla.
+**Aşama B — Araştırma verisini işle:** Araştırma ekibi sana hazır bir özet
+(kaynak tablosu + at bazlı son dakika + pist notu) verdi. Onu Bölüm 2'deki
+kurallara göre işle; kendini yeniden doğrulamaya kaptırma.
 
-**Aşama C — Tartma ve nihai karar:** Kendi görüşünle uzman görüşlerini karşılaştır,
-ayrıştığın noktaları gerekçelendir, gerekirse sıralamanı revize et — ama sırf çoğunluk
-öyle diyor diye değiştirme. Nihai sıralama senin kararın.
+**Aşama C — Tartma ve nihai karar:** Kendi görüşünle araştırma verisindeki uzman
+görüşlerini karşılaştır, ayrıştığın noktaları gerekçelendir, gerekirse sıralamanı
+revize et — ama sırf çoğunluk öyle diyor diye değiştirme. Nihai sıralama senin kararın.
 
 Bu sıra, başkalarının tahminine erken demirlemeni (anchoring) engellemek içindir.
 
@@ -219,15 +222,21 @@ Bu sıra, başkalarının tahminine erken demirlemeni (anchoring) engellemek iç
 <!-- lisans tipi | dönemsel istatistikler | son günlerdeki binişleri
      zemin ve mesafe bazlı istatistiği | bu koşudaki atla geçmiş ikili performansı -->
 
+## Araştırma Verisi (araştırma ekibinin çıktısı)
+{{ARASTIRMA_VERISI}}
+<!-- Araştırma ekibi web'i tarayıp hazırladı: kaynak tablosu (adı, URL, yayın
+     tarihi, ağırlık, gösterdiği atlar), at bazlı son dakika bulguları, pist notu.
+     WEB'E ÇIKMAZSIN; bu veriyle çalışırsın. Veri yoksa "araştırma verisi yok". -->
+
 ---
 
 # 1. VERİ HİYERARŞİSİ VE DOĞRULUK KURALLARI
 
 1. **Site verisi ana kaynaktır.** Yukarıdaki blokların içindeki her sayı, isim ve tarih esastır.
-2. **Ama siteye hapsolma.** Veride bulunmayan ve analizi güçlendirecek bilgileri web
-   araştırmasıyla tamamla (Bölüm 2 ve Bölüm 3).
-3. **Çelişki varsa site verisi kazanır.** Dış kaynak farklı bir kilo, HP, jokey veya derece
-   söylüyorsa site verisini kullan; çelişkiyi "Araştırma Notları"nda tek cümleyle belirt.
+2. **Araştırma verisi ikincil katmandır.** Site verisinde bulunmayan (son dakika, uzman
+   tercihi, pist haberi) bilgileri araştırma verisinden al; yeniden araştırma yapma.
+3. **Çelişki varsa site verisi kazanır.** Araştırma verisi farklı bir kilo, HP, jokey veya
+   derece söylüyorsa site verisini kullan; çelişkiyi "Araştırma Notları"nda tek cümleyle belirt.
 4. **Uydurma yok.** Bulamadığın hiçbir bilgiyi tahmin ederek doldurma. Olmayan bir idman
    notunu, galop derecesini, sakatlık haberini, istatistiği **veya analist yorumunu** yazma.
    Bulunamayan bilgi için net şekilde "bulunamadı" yaz.
@@ -239,129 +248,51 @@ Bu sıra, başkalarının tahminine erken demirlemeni (anchoring) engellemek iç
 
 ---
 
-# 2. ARAŞTIRMA PROTOKOLÜ (WEB)
+# 2. ARAŞTIRMA VERİSİNİ KULLAN VE UZMAN GÖRÜŞLERİYLE KARŞILAŞTIR
 
-**Önce şunu bil:** Aşağıdakilerin bir kısmı SADECE WEB'DE ARANIR, bir kısmı ise
-AT BLOKLARINDA zaten verilmiştir. At bloklarında verilen bilgilere dışarıda
-arama yapma — onları KENDİ yorumunla değerlendir, eksik tablosuna yazma:
+**Önce şunu bil:** Aşağıdaki bilgiler AT BLOKLARINDA zaten verilmiştir; bunlara
+dışarıda arama YAPMAZSIN, onları KENDİ yorumunla değerlendirirsin:
 
 - **İdman/galop:** At bloklarında "Son idmanlar (TJK verisi)" satırında.
   Kondisyon değerlendirmesini BU veriden sen yap: son çalışma tarihi (yakınlık),
   çalışma sıklığı, split dereceleri pist ortalamasına göre hızlı mı, durum kodu.
-  "Kondisyon notu" diye dışarıda arama yapma.
 - **Jokey/antrenör güncel formu:** At ve Jokey bloklarında "yakın dönem formu
   (uygulama verisi)" satırında (30 günlük istatistik). Değerlendirmeyi bu
-  istatistikten yap; "güncel değerlendirme" diye web'de makale arama.
-- **Pedigri eğilimi:** At bloklarında "Baba dölü eğilimi" satırında (yakın dönem
-  döl performansı). Veriliyorsa oradan kullan; yoksa baba/anne adının bilinen
-  genel karakterini kısaca yaz.
+  istatistikten yap.
+- **Pedigri eğilimi:** At bloklarında "Baba dölü eğilimi" satırında. Veriliyorsa
+  oradan kullan; yoksa baba/anne adının bilinen genel karakterini kısaca yaz.
 
-Web'de yalnızca şunlar aranır (her başlık için en az bir arama; sonuç zayıfsa
-farklı anahtar kelimelerle tekrar dene):
+**Web'e erişimin yok.** Son dakika haberleri, uzman tahminleri ve pist haberleri
+ARAŞTIRMA VERİSİ bölümünde hazırlanmış olarak gelir. Onu yalnızca TÜKET:
 
-**2.1 Son dakika haberleri** — koşudan çıkma, jokey değişikliği, takı
-değişikliği (gözlük, dil bağı, burun bandı), sakatlık veya ahır haberi.
-(Not: program verisinde "KOŞMAZ" işaretli atlar çıkmış sayılır; onu araştırmaya gerek yok.)
+## 2.1 Kaynak tablosunun işlenmesi
+Araştırma verisindeki tablo her kaynak için şu alanları içerir: kaynak adı,
+URL, **yayın tarihi/saati**, ağırlık (Yüksek/Orta/Düşük), öne çıkardığı atlar.
+- Yayın tarihi **"belirsiz/tarihsiz"** işaretli kaynakları konsensüs hesabına alma;
+  tabloda ayrı bir satırda "doğrulanamadı" olarak göster (asıl bilgisi değerliyse
+  Araştırma Notları'nda an).
+- Sonuçlanmış koşuda, koşudan SONRA yayımlanmış görünen yorumları da alma.
+- Tablodaki ağırlıkları yeniden hesaplama; ağırlıklandırma işi araştırma ekibinin.
 
-**2.2 Uzman tahmin sayfaları** — Bölüm 3'teki tarama.
+## 2.2 Konsensüs hesabı (mekanik)
+Tablodan say: hangi at kaç kaynakta 1. sırada / ilk 3'te gösterilmiş.
+- Kaynak sayısı 0-3 ise: "uzman verisi sınırlı" de; konsensüsü tek kaynakla
+  genişleteyim diye abartma; bölümü kısa tut ve kendi Aşama A analizine ağırlık ver.
+- **AGF ve ganyan uzman görüşü değildir** — ayrı bir sinyal olarak değerlendir,
+  konsensüse katma.
 
-**2.3 Eşitlik ve derinlik zorunluluğu**
-2.1 ve 2.2 araştırmasını koşudaki HER at için dene; favoriye 5 arama yapıp
-sürprize hiç bakmak yasaktır. Bir at için sonuç zayıfsa farklı anahtar kelimelerle
-(at adı + idman/galop, at adı + jokey, baba adı + döl, antrenör adı + form) en az 2 tur dene.
-"Bulunamadı" yazmak son çaredir: önce elindeki tüm arama varyasyonlarını tüket.
-Hiçbir atın bloğu diğerlerinden gözle görülür kısa/geçiştirilmiş olmayacak.
-
-Araştırma çıktısını analize eriterek kullan; ham arama sonucu yapıştırma.
-Bulduklarını ve bulamadıklarını "Araştırma Notları" başlığında raporla.
-
-**Kaynak gösterme kuralı:** metin içinde ASLA parantez içi kaynak/link yazma — ([site adı](url)) biçimi yasaktır, okuru yorar.
-Kullandığın her dış kaynağa metin içinde köşeli numara ver ([1], [2] ...); aynı kaynağı her geçtiği yerde ilk numarasıyla an, yeniden numaralama.
-Tüm kaynakları raporun sonundaki "## 📚 Kaynakça" bölümünde topla: her satırda [numara] + kaynak adı + tam URL + o kaynağın hangi bilgiyi desteklediği (tek cümle).
-
----
-
-# 3. UZMAN GÖRÜŞLERİ TARAMASI VE KARŞILAŞTIRMA
-
-Aşama A'da kendi görüşünü kurduktan sonra bu bölümü uygula.
-
-## 3.1 Hedef ve kapsam
-- **Hedef: en az 10 farklı güvenilir analist/kaynak.** Daha fazlasına ulaşabiliyorsan
-  ulaş (15-20 ideal). Sayıyı tutturmak için niteliksiz kaynak ekleme.
-- **Gerçekçilik kuralı:** Bulabildiğin kadarıyla yetin — Türkiye'de her koşu için
-  10 bağımsız yorum her gün yayımlanmaz. 0-3 kaynak bulursan bunu normal bir durum
-  olarak karşıla: bölümü kısa yaz, "uzman verisi sınırlı" de ve konsensüs
-  yerine kendi Aşama A analizine ağırlık ver. Kaynak azlığı analizi kısaltma
-  ya da bozma nedeni değildir.
-- Her kaynak **bağımsız** sayılmalı. Aynı tahmini kopyalayan siteler, aynı yazarın farklı
-  platformlardaki tekrarları veya bot/agregatör sayfaları tek kaynak sayılır.
-
-## 3.2 Nerede aranır
-Aşağıdaki kanalları tara; hangisinin gerçekten var ve erişilebilir olduğunu doğrula:
-- TJK ve resmi yarış yayınlarının program yorumları
-- Basılı/dijital yarış gazeteleri ve yarış programı yayınlarının tahmin sayfaları
-- Ulusal spor gazetelerinin at yarışı yazarları ve altılı ganyan köşeleri
-- Yerleşik at yarışı tahmin ve analiz siteleri
-- Tanınmış tahminci/analist YouTube kanalları ve canlı yayın özetleri
-- Sosyal medyada (X, Instagram) takip edilen, geçmişi olan tahminci hesaplar
-- At yarışı forumları ve topluluk analizleri (ağırlığı düşük tut)
-
-**Kaynak adını bulduğun şekliyle, birebir yaz.** Emin olmadığın bir yayın veya yazar adını
-"muhtemelen" diye yazma. Var olmayan analist ismi üretmek kesinlikle yasaktır.
-
-## 3.3 Eşleştirme kuralı (pragmatik)
-Bir yorumun bu koşuya ait olduğu şöyle doğrulanır (zayıflıktan güçlüye):
-1. **En güçlü:** hipodrom + tarih + koşu numarası (+ mesafe) eşleşiyor.
-2. **Geçerli (Düşük ağırlık):** hipodrom + tarih eşleşiyor, koşu numarası verilmemiş,
-   AMA yorumda bu koşudaki bir atın adı açıkça geçiyor.
-3. **Geçersiz:** farklı tarih, farklı hipodrom, veya tarihi belirsiz — listeye alma,
-   "doğrulanamadı" olarak atla.
-- Eşleşmeyen yorumu eklemek yasaktır; ama 2. kuraldaki gibi eşleşebilenleri
-  katmanı gereksiz yere dışlama. Koşu numarası hiçbir kaynakta yazmıyorsa 2.
-  kuralı kurallı biçimde kullan.
-- Farklı bir günün veya farklı bir ayağın tahminini karıştırma.
-
-## 3.4 Sonuç kirlenmesi filtresi
-{{KOSU_DURUMU}} "Sonuçlandı" ise: koşudan **sonra** yayımlanmış yorumları, sonuç
-değerlendirmelerini ve "şu at kazandı" içerikli paylaşımları listeye ALMA.
-Yalnızca koşu öncesi yayımlanmış tahminleri kullan. Tarih/saat belirsizse dahil etme.
-
-## 3.5 Güvenilirlik ağırlıklandırması
-Her kaynağa **Yüksek / Orta / Düşük** ağırlık ver. Ölçütler:
-- Gerekçe yazıyor mu, yoksa sadece numara mı sıralıyor? (gerekçeli = daha yüksek)
-- Kaynak kurumsal ve süreklilik sahibi mi, tek seferlik bir paylaşım mı?
-- Tahmin, koşuya yakın bir tarihte mi güncellenmiş? (son dakika bilgilerini içeriyor mu)
-- Geçmiş isabet performansına dair doğrulanabilir bir bilgi var mı? (varsa kullan, yoksa
-  "geçmiş performans verisi yok" de — isabet oranı uydurma)
-- Tıklama amaçlı abartılı dil ("garanti banko", "bomba kesin") kullanıyorsa ağırlığı düşür.
-
-**AGF ve ganyan uzman görüşü değildir.** Bunlar kalabalığın parası; ayrı bir sinyal olarak
-değerlendir, analist sayısına dahil etme.
-
-## 3.6 Telif ve özgünlük
-Analistlerin yorumlarını **kendi cümlelerinle özetle**. Uzun alıntı yapma, yazının
-yapısını kopyalama. En fazla çok kısa (birkaç kelimelik) bir ifade alıntılanabilir.
-Bir analistin tahminini olduğu gibi kendi tahminin gibi sunma.
-
-## 3.7 Ne çıkarılacak
-Topladığın verilerden şunları hesapla ve yorumla:
-1. **Konsensüs:** Hangi at kaç kaynakta 1. sırada / ilk 3'te gösterilmiş?
-2. **Ayrışma:** Uzmanların böldüğü, üzerinde anlaşılamayan atlar hangileri?
-3. **Sürü etkisi riski:** En çok gösterilen at, verilerle gerçekten destekleniyor mu,
-   yoksa popülerlik ve AGF etkisiyle mi şişmiş? Aşırı kalabalıklaşan favoriyi sorgula.
-4. **Gözden kaçan:** Senin analizinde öne çıkan ama uzmanların neredeyse hiç anmadığı at
-   var mı? Bu, value/sürpriz adayının en güçlü göstergesidir.
-5. **Yeni bilgi:** Uzman yorumlarında geçen ve site verisinde olmayan somut bilgi
-   (idman notu, ahır sinyali, son dakika değişikliği) — doğrulanabiliyorsa analize kat.
-
-## 3.8 Tartma ve nihai karar
-- Kendi Aşama A sıralamanı uzman konsensüsüyle yan yana koy.
+## 2.3 Tartma ve nihai karar
+- Kendi Aşama A sıralamanı konsensüsle yan yana koy.
 - **Çoğunluğa otomatik uyma.** Konsensüs seninle çelişiyorsa iki soruyu cevapla:
   "Onların gördüğü ve benim kaçırdığım somut bir veri var mı?" ve
   "Benim gördüğüm ve onların atladığı somut bir veri var mı?"
 - Sadece **yeni ve doğrulanabilir bir veri** varsa sıralamanı değiştir. Sırf kalabalık
   öyle diyor diye değiştirme; sırf inatla farklı görünmek için de direnme.
 - Değiştirdiysen neyi, neden değiştirdiğini tek cümleyle yaz.
+- **Gözden kaçan at:** Senin analizinde öne çıkan ama uzmanların neredeyse hiç
+  anmadığı at — value/sürpriz adayının en güçlü göstergesidir.
+- Araştırma verisinde geçen ve site verisinde olmayan somut bilgi (idman notu,
+  ahır sinyali, son dakika) — analize kat; yalnızca tabloda kaynaklıysa.
 
 ---
 
@@ -407,7 +338,7 @@ Koşunun karakterini ve analizin ana fikrini 3-4 cümlede topla.
 Bu bölümü yarışı az bilen bir son kullanıcıya anlatır gibi sade, günlük dille yaz; teknik terim kullanmamaya çalış, kullanırsan bir kelimeyle açıkla.
 
 ## 🗣️ Uzman Görüşleri Karşılaştırması
-**Taranan kaynak sayısı:** {sayı} (hedef: minimum 10)
+**Araştırma verisindeki kaynak sayısı:** {sayı} (konsensüse sayılan / toplam)
 
 | # | Kaynak / Analist | Ağırlık | Öne çıkardığı atlar | Bankosu | Kısa gerekçesi |
 |---|------------------|---------|---------------------|---------|----------------|
@@ -451,12 +382,11 @@ editoryal/sportif bilgidir, para miktarı veya bahis oynatma talimatı değildir
 
 ## 🔍 Araştırma Notları
 Madde madde:
-- Bölüm 2'den hangi dış bilgi **bulundu** (kısa özet + neye etki etti)
-- Hangi bilgi **bulunamadı** (açıkça yaz)
-- Uzman taramasında kaç kaynağa ulaşıldı; 10'un altında kalındıysa **nedeniyle birlikte**
-  açıkça belirt (örn. "Bu koşu için yalnızca 6 bağımsız kaynak bulunabildi; taşra
-  hipodromu koşusu olduğu için yorum kapsamı dar")
-- Site verisiyle dış kaynak/uzman yorumu arasında çelişki varsa burada belirt
+- Araştırma verisinden hangi dış bilgi **kullanıldı** (kısa özet + neye etki etti)
+- Araştırma verisinde hangi bilgi **bulunamadı** (o da özetle bildirilmişse aynen aktar;
+  açıkça yaz)
+- Konsensüse sayılan ve sayılmayan (tarihsiz/sonrası) kaynak sayısını ayrı belirt
+- Site verisiyle araştırma verisi arasında çelişki varsa burada belirt
   (site verisi esas alındı notuyla)
 
 ## 🧾 Eksik Bilgi Tablosu
@@ -640,6 +570,7 @@ export function buildRaceAnalysisPrompt(
   enriched: EnrichedHorse[],
   forms?: FormVerileri,
   pedigree?: Record<string, PedigreeStats | undefined>,
+  arastirmaVerisi?: string,
 ): string {
   const yarisBilgisi = [
     `Hipodrom: ${line(meeting.name)} (${line(meeting.city)})`,
@@ -733,6 +664,13 @@ ${pastRacesBlock(h)}`;
   out = fill(out, "{{KOSU_DURUMU}}", kosuDurumu);
   out = fill(out, "{{AT_BLOKLARI}}", atBloklari);
   out = fill(out, "{{JOKEY_BLOKLARI}}", jokeyBloklari);
+  out = fill(
+    out,
+    "{{ARASTIRMA_VERISI}}",
+    arastirmaVerisi && arastirmaVerisi.trim()
+      ? arastirmaVerisi.trim()
+      : "araştırma verisi yok (araştırma katmanı çalışmadı; Bölüm 2 uygulanamaz, Aşama A analizine ağırlık ver)",
+  );
   return out;
 }
 
@@ -910,43 +848,126 @@ function trTarihEtiket(date: string): string {
   return `${Number(m[3])} ${AYLAR[Number(m[2]) - 1] || ""} ${m[1]}`.replace(/\s+/g, " ").trim();
 }
 
-// Perplexity Sonar'a verilen araştırma görevi: gömülü prompt'taki Bölüm 2 + 3'ün
-// sıkıştırılmış hâli. Sonar kendi arar, kaynaklı özet döner.
-export function buildSonarPrompt(meeting: Meeting, race: Race): string {
-  const horses = race.horses
+// --- araştırma ekibi promptları (Sunar çağrılarında kullanılır) ---
+
+// İki prompt da aynı kaynak listesini kullanır — senkron kaymayı önlemek için
+// tek sabit. Analist prompt'u bu listeyi İÇERMEZ (rol ayrımı).
+const UZMAN_KAYNAK_LISTESI =
+  "Şu kaynakları özellikle kontrol et (sıra önemini göstermez): " +
+  "nesine.com at yarışı editör yorumları (koşu bazlı yazar yorumları), " +
+  "liderform.com.tr (günlük analizler), yenibeygir.com (koşu sayfaları), " +
+  "hipodrom.com uzman yorumları, istinyeganyan.com, pegadrom.com, atyarisi.ai, " +
+  "yaristayiz.com, tayzeka.com, bayganyan.com, ganyancanavari.com.tr, ybulten.com.tr, " +
+  "TJK program yorumları. Instagram/X hesapları yalnızca URL verilebiliyorsa Düşük ağırlıkla eklenir.";
+
+function araştırmaAtListesi(race: Race): string {
+  return race.horses
     .filter((h) => !h.scratched && h.name)
-    .map((h) => `${h.number}. ${h.name} (jokey: ${h.jockeyName}, antrenör: ${h.trainerName}${h.hp ? `, HP: ${h.hp}` : ""})`)
+    .map(
+      (h) =>
+        `${h.number}. ${h.name} (jokey: ${h.jockeyName}, antrenör: ${h.trainerName}${h.hp ? `, HP: ${h.hp}` : ""}${h.agf ? `, AGF: %${h.agf}` : ""})`,
+    )
     .join("\n");
-  const tarih = trTarihEtiket(race.date);
+}
+
+function araştırmaKünye(meeting: Meeting, race: Race): string {
   return [
-    `Türkiye at yarışı araştırması: ${meeting.city} ${race.no}. koşu — ${tarih || race.date}, ${race.distance} m ${race.trackLabel}.`,
-    "Koşudaki atlar:",
-    horses,
+    `Koşu: ${meeting.city} ${meeting.name || ""} ${race.no}. koşu — ${race.date} ${race.time ? `(${race.time})` : ""}`,
+    `Mesafe/Pist: ${race.distance} m ${race.trackLabel}`,
+    `Şart: ${race.gender || race.group || race.raceType || ""}`,
     "",
-    "Görevin:",
-    "1) 'At Bazlı Bulgular' başlığı altında, koşudaki HER at için ayrı ayrı ara ve yaz: idman/galop durumu (son galop tarihi/derecesi), jokeyin güncel formu, antrenörün güncel formu, pedigri mesafe eğilimi, son dakika haberi (koşudan çıkma, jokey değişikliği, takı, sakatlık). Bulamadığını 'yok' yaz; asla uydurma.",
-    `2) 'Uzman Yorumları' başlığı altında, ${meeting.city} hipodromunun ${tarih || race.date} tarihli koşuları için yayımlanmış Türkçe analist tahminlerini topla. Her kaynak için: kaynak adı, URL, tek cümle özet, gösterdiği favori atların ADI/numarası. Şu kaynakları özellikle kontrol et: nesine.com at yarışı editör yorumları (koşu bazlı yazar yorumları var), liderform.com.tr, yenibeygir.com, hipodrom.com uzman yorumları, istinyeganyan.com, pegadrom.com, atyarisi.ai, yaristayiz.com, TJK program yorumları. Instagram/X tahmin hesapları (ör. tayzeka) yalnızca URL verilebiliyorsa Düşük ağırlıkla eklenebilir.`,
-    "3) 'Pist Notu' başlığı altında: hipodromun pist karakteri (viraj/düzlük/kulvar) ve güncel pist durumu.",
-    "Önemli: Yalnızca koşu günü veya en fazla 3 gün önce yayımlanmış analizleri kullan; tarihi belirsiz/eski sayfaları 'tarihsiz/eski' diye ayrı işaretle. Hangi tarihli olduğunu her kaynakta belirt.",
-    "Çıktı: kompakt markdown; ham arama metni yapıştırma; tüm kaynaklar sonda [n] kaynak adı + URL + tarih listesi hâlinde; toplam ~1200 kelimeyi geçmesin.",
+    "Koşudaki atlar:",
+    araştırmaAtListesi(race),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// ORTA: tek çağrı — son dakika + uzman taraması + pist, yapılandırılmış şema ile.
+export function buildResearchPromptOrta(meeting: Meeting, race: Race): string {
+  return [
+    "GÖREVİN: Türkiye at yarışı araştırmacısısın. Aşağıdaki koşu için web'i tarayıp ÜÇ bölüm döndürürsün. Analiz yazmazsın, tahmin yapmazsın; yalnızca kaynaklı veri derlersin.",
+    "",
+    araştırmaKünye(meeting, race),
+    "",
+    "BİLİNENLER (zaten elimizde — bunları ARAMA, tekrar raporlama): idman/galop kayıtları, jokey-antrenör 30 günlük istatistikler, baba dölü performansı, kariyer tabloları.",
+    "",
+    "## BÖLÜM A — SON DAKİKA BULGULARI (at bazlı)",
+    "Her at için ayrı satır: `at adı — bulunan bilgi (kaynak adı [n])` veya `yok`.",
+    "Aradıkların: koşudan çıkma, jokey değişikliği, takı değişikliği (gözlük, dil bağı, burun bandı), sakatlık, ahır haberi, son 3 gün içindeki herhangi bir özel haber.",
+    "",
+    "## BÖLÜM B — UZMAN TARAMASI",
+    `${UZMAN_KAYNAK_LISTESI}`,
+    "",
+    "Her kaynak için tablo satırı: `[n] kaynak adı | URL | yayın tarihi (gg.aa.yyyy veya 'belirsiz') | ağırlık önerin (Yüksek/Orta/Düşük) | gösterdiği favori atlar (at adı veya program numarası) | tek cümle gerekçe`.",
+    "Kurallar:",
+    "- Yalnızca koşu günü veya en fazla 3 gün önce yayımlandığı görülen yorumları say; yayın tarihini HER satırda mutlaka yaz (yoksa 'belirsiz' yaz).",
+    `- ${meeting.city} ${race.no}. koşuya (hipodrom+tarih) eşleşmeyen yorumları listeye alma.`,
+    "- Aynı tahmini kopyalayan siteler tek kaynak sayılır; yorumsuz program listesi kaynak değildir.",
+    "- Kaynak adını bulduğun şekliyle birebir yaz; var olmayan analist ismi üretmek yasaktır.",
+    "- Hedef 10 bağımsız kaynak; az bulunursa o kadarıyla yetin, uydurma.",
+    "",
+    "## BÖLÜM C — PİST NOTU",
+    `${meeting.city} hipodromunun pist karakteri (viraj/düzlük/kulvar etkisi) ve bugünkü pist durumu hakkında yayınlanmış bilgi. Kaynaklı; yoksa 'yok'.`,
+    "",
+    "## BÖLÜM D — BULUNAMAYANLAR",
+    "Hangi atlar için ne aradığını ve bulamadığını tek satırlık liste olarak yaz (analistin eksik tablosu bundan oluşur).",
+    "",
+    "Çıktı dili Türkçe, kompakt markdown; ham arama metni yapıştırma; toplam ~1200 kelime.",
   ].join("\n");
 }
 
-// Özet, analiz prompt'una bu başlıkla eklenir; analist web'e çıkamaz.
-export const ARASTIRMA_BASLIK =
-  "# WEB ARAŞTIRMA ÖZETİ (sunucu tarafından önceden toplandı)\n\n" +
-  "Bölüm 2'deki web araştırması ve Bölüm 3'teki uzman taraması adımına bu özetle geldi. Web'e erişimin yok: " +
-  "2.1-2.6 bulgularını ve uzman listesini yalnızca bu özetteki 'At Bazlı Bulgular' / 'Uzman Yorumları' / 'Pist Notu' " +
-  "bölümlerinden kullan. Özette bulunmayan bilgiyi 'bulunamadı' yaz, uydurma. Kaynakça özet içindedir.\n\n";
+// YÜKSEK: iki odaklı çağrı paralel çalışır — her biri derinleşir.
+export function buildResearchPromptSonDakika(meeting: Meeting, race: Race): string {
+  return [
+    "GÖREVİN: Türkiye at yarışı araştırmacısısın. Aşağıdaki koşudaki HER at için son dakika bilgisini web'de tararsın. Analiz yazmazsın.",
+    "",
+    araştırmaKünye(meeting, race),
+    "",
+    "Aradıkların (at başına): koşudan çıkma, jokey değişikliği, takı değişikliği (gözlük, dil bağı, burun bandı), sakatlık, ahır haberi, son 3 günün özel notu.",
+    "Yöntem: her at için en az 2 sorgu dene (at adı + idman/galop; at adı + jokey; antrenör adı + ahır). Favoriye fazla takılıp sürprizleri atlamak yasak.",
+    "",
+    "Çıktı şeması:",
+    "- Her at için: `at adı — bilgi özeti (kaynak adı, URL, yayın tarihi)` veya `yok`.",
+    "- Sonra: `## BULUNAMAYANLAR` — hangi atlar için ne bulunamadı (tek satırlık liste).",
+    "Uydurma yasak: bulamadığını 'yok' yaz. Çıktı Türkçe, kompakt.",
+  ].join("\n");
+}
+
+export function buildResearchPromptUzman(meeting: Meeting, race: Race): string {
+  const tarih = race.date;
+  return [
+    "GÖREVİN: Türkiye at yarışı araştırmacısısın. Aşağıdaki koşu için yayımlanmış uzman tahminlerini web'de toplarsın. Kendi tahminini yazmazsın.",
+    "",
+    araştırmaKünye(meeting, race),
+    "",
+    `${UZMAN_KAYNAK_LISTESI}`,
+    "",
+    "Her kaynak için tablo satırı: `[n] kaynak adı | URL | yayın tarihi (gg.aa.yyyy veya 'belirsiz') | ağırlık önerin (Yüksek/Orta/Düşük) | gösterdiği favori atlar (at adı veya program numarası) | tek cümle gerekçe`.",
+    "Kurallar:",
+    "- Yalnızca koşu günü veya en fazla 3 gün önce yayımlandığı görülen yorumları say; yayın tarihini HER satırda mutlaka yaz (yoksa 'belirsiz' yaz).",
+    `- ${meeting.city} ${race.no}. koşuya (hipodrom + ${tarih}) eşleşmeyen yorumları listeye alma.`,
+    "- Aynı tahmini kopyalayan siteler tek kaynak sayılır; yorumsuz program listesi kaynak değildir.",
+    "- Kaynak adını bulduğun şekliyle birebir yaz; var olmayan analist ismi üretmek yasaktır.",
+    "- Hedef 10 bağımsız kaynak; az bulunursa o kadarıyla yetin, uydurma.",
+    "",
+    "Çıktı: kaynak tablosu + sonda `## BULUNAMAYANLAR` (hangi kanallar boş döndü). Türkçe, kompakt.",
+  ].join("\n");
+}
+
+// Özet, prompt şablonundaki {{ARASTIRMA_VERISI}} yuvasına yerleştirilir;
+// tüketim kuralları ANALIST_TALIMATI'nın Bölüm 2'sindedir.
 
 // Sunucudaki nano özetçi kotasız kalırsa (raw:true) ham bloğu cihaz anahtarıyla
 // özetleriz. gpt-5-nano: OpenAI'da sk-…, OpenRouter'da sk-or-… anahtarla çalışır.
+// Şema, araştırma ekibinin çıktı şemasıyla uyumlu (kompakt).
 export const NANO_OZET_GOREVI =
-  "Görev: Yukarıdaki ham web sonuçlarından şu başlıkları çıkar:\n" +
-  "## At Bazlı Bulgular — her at için ayrı satır(lar): idman/galop, jokey formu, antrenör formu, pedigri, son dakika. Olmayan için 'yok'.\n" +
-  "## Uzman Yorumları — kaynak adı + URL + gösterdiği favori at (koşuya eşleşmeyen yorumları alma).\n" +
-  "## Pist Notu — tek kısa paragraf.\n" +
-  "Sadece bu başlıkları yaz; toplam ≤600 kelime; kaynak adlarını koru.";
+  "Görev: Yukarıdaki ham web sonuçlarını araştırma ekibi şemasına çevir:\n" +
+  "## SON DAKİKA — her at için: `at adı — bilgi (kaynak adı)` veya `yok`\n" +
+  "## UZMAN TABLOSU — her satır: `[n] kaynak adı | URL | yayın tarihi veya 'belirsiz' | ağırlık | gösterdiği atlar | tek cümle`\n" +
+  "## PİST NOTU — tek kısa paragraf (yoksa 'yok')\n" +
+  "## BULUNAMAYANLAR — hangi atlar için ne bulunamadı (tek satırlık liste)\n" +
+  "Uydurma yasak; ham metinde olmayan bilgiyi yazma. Türkçe, kompakt.";
 
 export async function nanoSentezCihaz(icerik: string, apiKey: string): Promise<string> {
   if (!icerik || !apiKey) return "";

@@ -427,15 +427,17 @@ async function nanoSentez(gorev, icerik, maxTokens) {
 }
 
 const NANO_GOREV_TAVILY =
-  "Görev: Yukarıdaki ham web sonuçlarından şu başlıkları çıkar:\n" +
-  "## At Bazlı Bulgular — her at için ayrı satır(lar): idman/galop, jokey formu, antrenör formu, pedigri, son dakika. Olmayan için 'yok'.\n" +
-  "## Uzman Yorumları — kaynak adı + URL + gösterdiği favori at (koşuya eşleşmeyen yorumları alma).\n" +
-  "## Pist Notu — tek kısa paragraf.\n" +
-  "Sadece bu başlıkları yaz; toplam ≤600 kelime; kaynak adlarını koru.";
+  "Görev: Yukarıdaki ham web sonuçlarını araştırma ekibi şemasına çevir:\n" +
+  "## SON DAKİKA — her at için: `at adı — bilgi (kaynak adı)` veya `yok`\n" +
+  "## UZMAN TABLOSU — her satır: `[n] kaynak adı | URL | yayın tarihi veya 'belirsiz' | ağırlık | gösterdiği atlar | tek cümle`\n" +
+  "## PİST NOTU — tek kısa paragraf (yoksa 'yok')\n" +
+  "## BULUNAMAYANLAR — hangi atlar için ne bulunamadı (tek satırlık liste)\n" +
+  "Uydurma yasak; ham metinde olmayan bilgiyi yazma. Türkçe, kompakt; ≤600 kelime.";
 
 const NANO_GOREV_BIRLESTIR =
-  "Görev: Aşağıdaki iki araştırma özetini TEK bir özette birleştir. Aynı bilgiyi tekilleştir; çelişkiyi 'kaynaklar farklı söylüyor' notuyla koru. " +
-  "Yapı: ## At Bazlı Bulgular / ## Uzman Yorumları / ## Pist Notu / ## Kaynakça (tüm URL'ler). Toplam ≤800 kelime.";
+  "Görev: Aşağıdaki araştırma çıktılarını TEK bir özette birleştir (şema: SON DAKİKA / UZMAN TABLOSU / PİST NOTU / BULUNAMAYANLAR). " +
+  "Aynı bilgiyi tekilleştir; çelişkiyi 'kaynaklar farklı söylüyor' notuyla koru. Uzman tablosunda her kaynağın URL + yayın tarihi alanını KORU. " +
+  "Uydurma yasak; Türkçe, kompakt; ≤900 kelime.";
 
 app.post("/api/analiz/arastirma", async (req, res) => {
   const depth = req.body?.depth === "orta" ? "orta" : req.body?.depth === "yuksek" ? "yuksek" : "dusuk";
@@ -443,8 +445,11 @@ app.post("/api/analiz/arastirma", async (req, res) => {
     .map((q) => String(q ?? "").trim())
     .filter(Boolean)
     .slice(0, 6);
-  const sonarPrompt = typeof req.body?.sonarPrompt === "string" ? req.body.sonarPrompt.slice(0, 60000) : "";
-  if (!queries.length && !sonarPrompt) return res.status(400).json({ error: "Sorgu yok", digest: "" });
+  // Yüksek: 2 odaklı prompt (son-dakika, uzman). Orta: 1 birleşik prompt.
+  const sonarPrompts = (Array.isArray(req.body?.sonarPrompts) ? req.body.sonarPrompts : [])
+    .map((p) => String(p ?? "").slice(0, 60000))
+    .filter(Boolean);
+  if (!queries.length && !sonarPrompts.length) return res.status(400).json({ error: "Sorgu yok", digest: "" });
 
   // Anahtar yoksa otomatik güvenli düşüş: orta/yüksek → düşük; düşük için de
   // Tavily yoksa istemci analizini araştırmadan devam eder.
@@ -457,19 +462,21 @@ app.post("/api/analiz/arastirma", async (req, res) => {
 
   try {
     if (used === "orta") {
-      const digest = await sonarResearch(sonarPrompt);
+      const digest = await sonarResearch(sonarPrompts[0]);
       return res.json({ depth: used, digest });
     }
     if (used === "yuksek") {
-      const [tavilyBlock, sonarDigest] = await Promise.all([
-        buildTavilyDigest(queries).catch(() => ""),
-        sonarResearch(sonarPrompt).catch(() => ""),
-      ]);
-      const digest = await nanoSentez(NANO_GOREV_BIRLESTIR, `=== ÖZET A (domain hedefli) ===\n${tavilyBlock}\n\n=== ÖZET B (geniş tarama) ===\n${sonarDigest}`, 3000);
+      // İki odaklı çağrı paralel; biri boş döndüğünede diğerinin çıktısı yeter.
+      const [sonDakika, uzman] = await Promise.all(sonarPrompts.map((p) => sonarResearch(p).catch(() => "")));
+      const joined = [sonDakika, uzman].filter(Boolean).join("\n\n---\n\n");
+      // Tavily ham sonuçları da kat (domain hedefli — Sonar'ın kaçırabildiği Türkçe siteler).
+      const tavilyBlock = TAVILY_API_KEY ? await buildTavilyDigest(queries).catch(() => "") : "";
+      const merged = [joined, tavilyBlock].filter(Boolean).join("\n\n---\n\n");
+      const digest = merged ? await nanoSentez(NANO_GOREV_BIRLESTIR, merged, 3000) : "";
       return res.json({
         depth: used,
-        digest: digest || sonarDigest || tavilyBlock,
-        raw: !digest && !sonarDigest && Boolean(tavilyBlock),
+        digest: digest || merged,
+        raw: !digest && Boolean(merged),
       });
     }
     // dusuk: Tavily + nano özet; nano başarısızsa (kota vb.) ham blok + raw

@@ -6,10 +6,11 @@ import { saveAnalysis } from "./analyses";
 import { getLeaderboard, getPedigreeBatch, postResearch } from "./api";
 import type { PedigreeStats } from "./types";
 import {
-  ARASTIRMA_BASLIK,
   buildRaceAnalysisPrompt,
+  buildResearchPromptOrta,
+  buildResearchPromptSonDakika,
+  buildResearchPromptUzman,
   buildResearchQueries,
-  buildSonarPrompt,
   callGpt,
   collectRaceProfiles,
   getArastirmaDerinlik,
@@ -130,30 +131,24 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
 
     let prompt = buildRaceAnalysisPrompt(meeting, race, enriched, forms);
 
-    // Pedigri eğilimi (toplu, bedava): liderlik çağrısı gün kartlarını ısıttığı
-    // için bu istek sıcak cache'ten döner — ek TJK yükü yok denecek kadar az.
-    let pedigree: Record<string, PedigreeStats | undefined> | undefined;
-    try {
-      const ids = race.horses.map((h) => h.id).filter(Boolean);
-      pedigree = await getPedigreeBatch(ids);
-      prompt = buildRaceAnalysisPrompt(meeting, race, enriched, forms, pedigree);
-    } catch {
-      /* pedigri opsiyonel */
-    }
-
-    // Araştırma katmanı (derinlik: düşük/orta/yüksek, kullanıcının seçimi).
-    // Özet üretilirse prompt'a eklenir ve analiz modeli web'e çıkmaz — arama
-    // maliyeti sabitlenir. Özet yoksa eski davranış: model kendi arar.
-    let haveResearch = false;
+    // Araştırma katmanı (derinlik: düşük/orta/yüksek): araştırma ekibi kendi
+    // prompt'uyla çalışır, yapılandırılmış özet üretir; özet prompt şablonundaki
+    // {{ARASTIRMA_VERISI}} yuvasına girer. Analist web'e çıkmaz.
+    let arastirmaVerisi = "";
     try {
       const depth = getArastirmaDerinlik();
       const depthLabel = depth === "dusuk" ? "düşük" : depth === "orta" ? "orta" : "yüksek";
       job.progress = `Web araştırması (${depthLabel})…`;
       emit();
+      // Yüksek: iki odaklı çağrı; Orta: tek birleşik çağrı.
+      const sonarPrompts =
+        depth === "yuksek"
+          ? [buildResearchPromptSonDakika(meeting, race), buildResearchPromptUzman(meeting, race)]
+          : [buildResearchPromptOrta(meeting, race)];
       const research = await postResearch({
         depth,
         queries: buildResearchQueries(meeting, race),
-        sonarPrompt: buildSonarPrompt(meeting, race),
+        sonarPrompts,
       });
       let digest = research.digest;
       // Sunucudaki nano özetçi kotasızsa (raw) ham bloğu cihaz anahtarıyla özetle.
@@ -161,14 +156,23 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
         const ozet = await nanoSentezCihaz(digest, apiKey);
         if (ozet) digest = ozet;
       }
-      if (digest) {
-        prompt += "\n\n" + ARASTIRMA_BASLIK + digest;
-        haveResearch = true;
-      }
+      arastirmaVerisi = digest;
     } catch {
       /* araştırma opsiyonel — olmadan da analiz yapılır */
     }
 
+    // Pedigri eğilimi (toplu, bedava): liderlik çağrısı gün kartlarını ısıttığı
+    // için bu istek sıcak cache'ten döner.
+    let pedigree: Record<string, PedigreeStats | undefined> | undefined;
+    try {
+      const ids = race.horses.map((h) => h.id).filter(Boolean);
+      pedigree = await getPedigreeBatch(ids);
+    } catch {
+      /* pedigri opsiyonel */
+    }
+
+    prompt = buildRaceAnalysisPrompt(meeting, race, enriched, forms, pedigree, arastirmaVerisi);
+    const haveResearch = Boolean(arastirmaVerisi.trim());
     const out = await callGpt(prompt, apiKey, model, effort, haveResearch);
     job.result = out;
     job.state = "done";

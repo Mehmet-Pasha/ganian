@@ -424,15 +424,27 @@ export async function loadLeaderboard(days = 30) {
 }
 
 // Atın idman (galop) kayıtları — TJK IdmanIstatistikleri sayfasından.
+// Boş sonuç uzun süre cache'LENMEZ: 13 atlık analiz patlamasında TJK ara sıra
+// 403/429 döndürüyor; geçici hata kalıcı eksiklik gibi cache'lenirse favori
+// atların idman verisi analizde boş kalıyor (canlı tespit edildi).
+const idmanCache = new Map(); // id -> { at, data }
+
 export async function loadIdman(id) {
-  return cached(`idman:${id}`, 180_000, async () => {
+  const hit = idmanCache.get(id);
+  if (hit && Date.now() - hit.at < 180_000) return hit.data;
+  let rows = [];
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const html = await fetchText(tjkIdmanUrl(id), 16000);
-      return parseIdmanPage(html);
+      rows = parseIdmanPage(html);
+      break; // sayfa geldi: tablo boşsa gerçekten boştur, tekrar denemeye gerek yok
     } catch {
-      return [];
+      if (attempt >= 3) break;
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
     }
-  });
+  }
+  if (rows.length) idmanCache.set(id, { at: Date.now(), data: rows });
+  return rows;
 }
 
 export async function loadHorse(id) {

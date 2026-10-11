@@ -287,7 +287,7 @@ async function tavilySearch(query, maxResults) {
       search_depth: "basic",
       include_answer: false,
       // Türkçe yarış içeriği bu sitelerde yoğun; genel aramada kaçanları yakalar.
-      include_domains: ["liderform.com.tr", "yenibeygir.com", "atyarisi.com", "nesine.com", "tjk.org", "apw.com.tr", "sozcu.com.tr", "hurriyet.com.tr", "sporx.com", "birebin.com", "istinyeganyan.com"],
+      include_domains: ["liderform.com.tr", "yenibeygir.com", "atyarisi.com", "atyarisi.ai", "nesine.com", "hipodrom.com", "tjk.org", "apw.com.tr", "sozcu.com.tr", "sporx.com", "birebin.com", "istinyeganyan.com", "pegadrom.com", "yaristayiz.com"],
     }),
   });
   if (!r.ok) throw new Error(`Tavily HTTP ${r.status}`);

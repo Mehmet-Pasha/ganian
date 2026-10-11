@@ -168,6 +168,11 @@ export function tjkHorseUrl(id) {
   return `https://www.tjk.org/TR/YarisSever/Query/ConnectedPage/AtKosuBilgileri?1=1&QueryParameter_AtId=${encodeURIComponent(id)}`;
 }
 
+// Atın idman (galop) sayfası: tarih, hipodrom, pist, split dereceleri, idman jokeyi.
+export function tjkIdmanUrl(id) {
+  return `https://www.tjk.org/TR/YarisSever/Query/Page/IdmanIstatistikleri?QueryParameter_AtId=${encodeURIComponent(id)}`;
+}
+
 export function tjkJockeyUrl(id, name = "") {
   const q = new URLSearchParams({ "1": "1", QueryParameter_JokeyId: id });
   if (name) q.set("QueryParameter_JokeyAdi", name);

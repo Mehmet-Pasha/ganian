@@ -147,6 +147,27 @@ export type PastRace = {
   photoUrl: string;
 };
 
+export type IdmanRow = {
+  horseName: string;
+  date: string;
+  dateIso: string;
+  hipodrom: string;
+  pistDurum: string;
+  track: TrackKind;
+  tip: string;
+  jokey: string;
+  durum: string;
+  splits: {
+    m1400: string;
+    m1200: string;
+    m1000: string;
+    m800: string;
+    m600: string;
+    m400: string;
+    m200: string;
+  };
+};
+
 export type HorseProfile = {
   id: string;
   name: string;
@@ -167,6 +188,7 @@ export type HorseProfile = {
   sex: string;
   career: CareerLine[];
   races: PastRace[];
+  idmanlar: IdmanRow[];
   surfaceStats: SurfaceDistanceStats;
   error?: string;
 };

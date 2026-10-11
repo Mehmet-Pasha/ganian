@@ -543,6 +543,37 @@ function careerBlock(h: HorseProfile): string {
   return rows.length ? rows.join(" | ") : "kariyer tablosu yok";
 }
 
+// TJK'nın IdmanIstatistikleri sayfasından çekilen galop kayıtları —
+// web'de aranmaz, uygulama direkt çekiyor (kesin + ücretsiz).
+function idmanBloku(h: HorseProfile): string {
+  const rows = (h.idmanlar || []).slice(0, 3).map((r) => {
+    const splits = [
+      r.splits?.m1400 && `1400:${r.splits.m1400}`,
+      r.splits?.m1200 && `1200:${r.splits.m1200}`,
+      r.splits?.m1000 && `1000:${r.splits.m1000}`,
+      r.splits?.m800 && `800:${r.splits.m800}`,
+      r.splits?.m600 && `600:${r.splits.m600}`,
+      r.splits?.m400 && `400:${r.splits.m400}`,
+      r.splits?.m200 && `200:${r.splits.m200}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return [
+      r.date,
+      r.hipodrom,
+      r.tip,
+      r.track,
+      r.pistDurum,
+      splits,
+      r.durum,
+      r.jokey && `idman jokeyi: ${r.jokey}`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+  });
+  return rows.length ? rows.join(" || ") : "idman kaydı yok";
+}
+
 export type EnrichedHorse = {
   entryId: string;
   profile: HorseProfile;
@@ -619,6 +650,7 @@ export function buildRaceAnalysisPrompt(
 - Antrenör: ${line(h.trainer)} (programdaki: ${line(e?.trainerName)}) | Sahip: ${line(h.owner || h.runningOwner)}
 - Antrenör yakın dönem formu (uygulama verisi): ${formSatiri(forms?.trainers || [], e?.trainerName || h.trainer)}
 - Kariyer: ${careerBlock(h)}
+- Son idmanlar (TJK verisi): ${idmanBloku(h)}
 - Zemin istatistiği: ${surfaceLine(h.surfaceStats)}
 - Son 8 koşu:
 ${pastRacesBlock(h)}`;
@@ -706,6 +738,15 @@ export async function collectRaceProfiles(
   const byId = new Map<string, HorseProfile>();
   for (const p of profiles) if (p) byId.set(p.id, p);
 
+  // TJK profil sayfası bazen ismi boş döndürüyor ("At 115532" gibi görünür);
+  // programdaki isimle düzelt.
+  profiles.forEach((p, i) => {
+    if (p && (!p.name || /^At \d+$/i.test(p.name))) {
+      const e = race.horses.find((x) => x.id === ids[i]);
+      if (e?.name) p.name = e.name;
+    }
+  });
+
   // Jokey profilleri best-effort: benzersiz jokeyler, en fazla 8
   const jockeys = [...new Map(race.horses.filter((h) => h.jockeyId).map((h) => [h.jockeyId, h.jockeyName] as const)).entries()].slice(0, 8);
   const jmap = new Map<string, JockeyProfile>();
@@ -742,6 +783,7 @@ export async function collectRaceProfiles(
       sex: "",
       career: [],
       races: [],
+      idmanlar: [],
       surfaceStats: { bySurface: { cim: { starts: 0, wins: 0, winPct: 0 }, kum: { starts: 0, wins: 0, winPct: 0 }, sentetik: { starts: 0, wins: 0, winPct: 0 } }, byDistance: { kisa: { starts: 0, wins: 0, winPct: 0 }, orta: { starts: 0, wins: 0, winPct: 0 }, uzun: { starts: 0, wins: 0, winPct: 0 } }, bestSurface: null, bestDistance: null, sample: 0 },
     };
     const profile = (e.id && byId.get(e.id)) || fallback;
@@ -845,7 +887,7 @@ export function buildSonarPrompt(meeting: Meeting, race: Race): string {
     "",
     "Görevin:",
     "1) 'At Bazlı Bulgular' başlığı altında, koşudaki HER at için ayrı ayrı ara ve yaz: idman/galop durumu (son galop tarihi/derecesi), jokeyin güncel formu, antrenörün güncel formu, pedigri mesafe eğilimi, son dakika haberi (koşudan çıkma, jokey değişikliği, takı, sakatlık). Bulamadığını 'yok' yaz; asla uydurma.",
-    `2) 'Uzman Yorumları' başlığı altında, ${meeting.city} hipodromunun ${tarih || race.date} tarihli koşuları için yayımlanmış Türkçe analist tahminlerini topla. Her kaynak için: kaynak adı, URL, tek cümle özet, gösterdiği favori atların ADI/numarası. Şu kaynakları özellikle kontrol et: liderform.com.tr, yenibeygir.com, istinyeganyan.com, atyarisi.net, sozcu.com.tr altılı köşeleri, sporx.com, TJK program yorumları.`,
+    `2) 'Uzman Yorumları' başlığı altında, ${meeting.city} hipodromunun ${tarih || race.date} tarihli koşuları için yayımlanmış Türkçe analist tahminlerini topla. Her kaynak için: kaynak adı, URL, tek cümle özet, gösterdiği favori atların ADI/numarası. Şu kaynakları özellikle kontrol et: nesine.com at yarışı editör yorumları (koşu bazlı yazar yorumları var), liderform.com.tr, yenibeygir.com, hipodrom.com uzman yorumları, istinyeganyan.com, pegadrom.com, atyarisi.ai, yaristayiz.com, TJK program yorumları. Instagram/X tahmin hesapları (ör. tayzeka) yalnızca URL verilebiliyorsa Düşük ağırlıkla eklenebilir.`,
     "3) 'Pist Notu' başlığı altında: hipodromun pist karakteri (viraj/düzlük/kulvar) ve güncel pist durumu.",
     "Önemli: Yalnızca koşu günü veya en fazla 3 gün önce yayımlanmış analizleri kullan; tarihi belirsiz/eski sayfaları 'tarihsiz/eski' diye ayrı işaretle. Hangi tarihli olduğunu her kaynakta belirt.",
     "Çıktı: kompakt markdown; ham arama metni yapıştırma; tüm kaynaklar sonda [n] kaynak adı + URL + tarih listesi hâlinde; toplam ~1200 kelimeyi geçmesin.",

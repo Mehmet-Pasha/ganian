@@ -1,5 +1,45 @@
 import { decodeHtml, stripTags, trackKindFromShort, trDateToIso } from "./format.mjs";
 
+// --- idman (galop) sayfası parser ---
+// TJK IdmanIstatistikleri sayfası tek tablo döner:
+// At Adı|Irk|Cins|Yaş|1400|1200|1000|800|600|400|200|Durum|İ.Tarihi|İ.Hip.|P.Dur|Pist|İ.T'r|İ.Jokeyi|Detay
+// Sütun sırası TJK güncellerse burası ayarlanmalı (savunmacı: eksik alan boş kalır).
+export function parseIdmanPage(html) {
+  const rows = [];
+  const tables = tablesOf(html);
+  const table =
+    tables.find((t) => /İ\. Tarihi|İmanIstatistik|idman/i.test(t) && rowsOf(t).length > 2) || tables[0] || "";
+  for (const row of rowsOf(table)) {
+    const cells = cellsOf(row);
+    if (cells.length < 17) continue;
+    const name = (cells[0]?.text || "").trim();
+    if (!name || /at adı/i.test(name)) continue;
+    const tarih = (cells[12]?.text || "").trim();
+    if (!/^\d{2}[./]\d{2}[./]\d{4}$/.test(tarih)) continue;
+    rows.push({
+      horseName: name,
+      date: tarih,
+      dateIso: trDateToIso(tarih),
+      hipodrom: (cells[13]?.text || "").trim(),
+      pistDurum: (cells[14]?.text || "").trim(),
+      track: trackKindFromShort((cells[15]?.text || "").trim()),
+      tip: (cells[16]?.text || "").trim(),
+      jokey: (cells[17]?.text || "").trim(),
+      durum: (cells[11]?.text || "").trim(),
+      splits: {
+        m1400: (cells[4]?.text || "").trim(),
+        m1200: (cells[5]?.text || "").trim(),
+        m1000: (cells[6]?.text || "").trim(),
+        m800: (cells[7]?.text || "").trim(),
+        m600: (cells[8]?.text || "").trim(),
+        m400: (cells[9]?.text || "").trim(),
+        m200: (cells[10]?.text || "").trim(),
+      },
+    });
+  }
+  return rows;
+}
+
 function tablesOf(html) {
   return html.match(/<table[\s\S]*?<\/table>/gi) || [];
 }

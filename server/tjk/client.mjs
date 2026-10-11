@@ -5,6 +5,7 @@ import {
   isDomesticMeeting,
   prizeText,
   tjkHorseUrl,
+  tjkIdmanUrl,
   tjkJockeyUrl,
   tjkTrainerUrl,
   tjkOwnerUrl,
@@ -13,7 +14,7 @@ import {
   trackKindOf,
   trackLabel,
 } from "./format.mjs";
-import { extractMp4, parseHorsePage, parseJockeyStats, parsePersonPage } from "./parseHtml.mjs";
+import { extractMp4, parseHorsePage, parseIdmanPage, parseJockeyStats, parsePersonPage } from "./parseHtml.mjs";
 import { computeSurfaceDistanceStats } from "./stats.mjs";
 
 const UA =
@@ -47,26 +48,36 @@ async function mapPool(items, limit, fn) {
 }
 
 async function fetchText(url, timeoutMs = 15000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/json;q=0.9,*/*;q=0.8",
-        "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
-        Referer: "https://www.tjk.org/",
-      },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status} — ${url}`);
-    return await res.text();
-  } catch (err) {
-    if (err && err.name === "AbortError") throw new Error(`Zaman aşımı — ${url}`);
-    throw err;
-  } finally {
-    clearTimeout(t);
+  // TJK ara ara 403/429 döndürüyor (rate-limit): kısa beklemeyle bir kez daha dene.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        signal: ctrl.signal,
+        headers: {
+          "User-Agent": UA,
+          Accept: "text/html,application/json;q=0.9,*/*;q=0.8",
+          "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
+          Referer: "https://www.tjk.org/",
+        },
+      });
+      if (!res.ok) {
+        if ((res.status === 403 || res.status === 429) && attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+        throw new Error(`HTTP ${res.status} — ${url}`);
+      }
+      return await res.text();
+    } catch (err) {
+      if (err && err.name === "AbortError") throw new Error(`Zaman aşımı — ${url}`);
+      throw err;
+    } finally {
+      clearTimeout(t);
+    }
   }
+  throw new Error(`HTTP — ${url}`);
 }
 
 async function fetchJson(url) {
@@ -375,6 +386,18 @@ export async function loadLeaderboard(days = 30) {
   });
 }
 
+// Atın idman (galop) kayıtları — TJK IdmanIstatistikleri sayfasından.
+export async function loadIdman(id) {
+  return cached(`idman:${id}`, 180_000, async () => {
+    try {
+      const html = await fetchText(tjkIdmanUrl(id), 16000);
+      return parseIdmanPage(html);
+    } catch {
+      return [];
+    }
+  });
+}
+
 export async function loadHorse(id) {
   return cached(`horse:${id}`, 180_000, async () => {
     try {
@@ -383,6 +406,8 @@ export async function loadHorse(id) {
       if (!profile.name) profile.name = `At ${id}`;
       const statEntries = profile.races.map((r) => ({ track: r.track, distance: r.distance, position: r.position }));
       profile.surfaceStats = computeSurfaceDistanceStats(statEntries);
+      // İdmanlar best-effort: sayfa çekilemezse boş döner, profili bozmaz.
+      profile.idmanlar = await loadIdman(id);
       return profile;
     } catch (err) {
       return {
@@ -405,6 +430,7 @@ export async function loadHorse(id) {
         sex: "",
         career: [],
         races: [],
+        idmanlar: [],
         surfaceStats: computeSurfaceDistanceStats([]),
         error: err instanceof Error ? err.message : "At bilgisi alınamadı",
       };

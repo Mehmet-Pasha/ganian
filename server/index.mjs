@@ -41,6 +41,12 @@ app.use(express.json({ limit: "1mb" }));
 
 const PORT = process.env.PORT || 8787;
 const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || "").trim();
+// OpenRouter (https://openrouter.ai): Orta/Yüksek araştırma derinliği için
+// Perplexity Sonar modelini bu anahtarla çalıştırır. OpenRouter anahtarları
+// "sk-or-" ile başlar. Tanımlı değilse araştırma otomatik olarak Düşük'e düşer.
+const OPENROUTER_API_KEY = (process.env.OPENROUTER_API_KEY || "").trim();
+// Tavily: Düşük araştırma katmanının arama motoru (tavily.com, ücretsiz kota).
+const TAVILY_API_KEY = (process.env.TAVILY_API_KEY || "").trim();
 
 function isoOk(v) {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
@@ -232,6 +238,231 @@ function isRateLimit(text, status) {
   return status === 429 || /rate limit|tokens per min|TPM|try again/i.test(text || "");
 }
 
+// ---------------------------------------------------------------------------
+// Web araştırması (3 derinlik): Düşük = Tavily + gpt-5-nano özet; Orta =
+// Perplexity Sonar (OpenRouter); Yüksek = Sonar + Tavily + nano birleştirme.
+// Özet bir kez üretilip analiz modeline verilir; analiz modeli web'e çıkamaz —
+// arama maliyeti sabit ve öngörülebilir kalır.
+// ---------------------------------------------------------------------------
+
+const TAVILY_URL = "https://api.tavily.com/search";
+const TAVILY_BASLIK =
+  "# HAM WEB SONUÇLARI (Tavily, domain hedefli tarama)\n";
+const tavilyCache = new Map(); // sorgu -> { at, data }
+const sonarCache = new Map(); // prompt -> { at, digest }
+
+const TAVILY_SONUC_LIMITI = 3; // sorgu başına sonuç
+const TAVILY_OZET_SINIRI = 420; // sonuç başına karakter
+
+function cacheGet(map, key, ttlMs) {
+  const hit = map.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > ttlMs) {
+    map.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+function cacheSet(map, key, data, maxEntries) {
+  map.set(key, { at: Date.now(), data });
+  if (map.size > maxEntries) {
+    const oldest = [...map.entries()].sort((a, b) => a[1].at - b[1].at).slice(0, Math.ceil(maxEntries / 5));
+    for (const [k] of oldest) map.delete(k);
+  }
+}
+
+async function tavilySearch(query, maxResults) {
+  const hit = cacheGet(tavilyCache, query, 30 * 60 * 1000);
+  if (hit) return hit;
+  const r = await fetch(TAVILY_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${TAVILY_API_KEY}`,
+    },
+    body: JSON.stringify({
+      query,
+      max_results: maxResults,
+      search_depth: "basic",
+      include_answer: false,
+      // Türkçe yarış içeriği bu sitelerde yoğun; genel aramada kaçanları yakalar.
+      include_domains: ["liderform.com.tr", "yenibeygir.com", "atyarisi.com", "nesine.com", "tjk.org", "apw.com.tr", "sozcu.com.tr", "hurriyet.com.tr", "sporx.com", "birebin.com", "istinyeganyan.com"],
+    }),
+  });
+  if (!r.ok) throw new Error(`Tavily HTTP ${r.status}`);
+  const data = await r.json();
+  const out = (data?.results || []).slice(0, maxResults).map((x) => ({
+    title: String(x?.title || "").slice(0, 120),
+    url: String(x?.url || ""),
+    content: String(x?.content || "").slice(0, TAVILY_OZET_SINIRI),
+  }));
+  cacheSet(tavilyCache, query, out, 500);
+  return out;
+}
+
+async function buildTavilyDigest(queries) {
+  const list = (queries || []).map((q) => String(q || "").trim().slice(0, 180)).filter(Boolean);
+  if (!list.length) return "";
+  const groups = await Promise.all(
+    list.map((q, i) =>
+      tavilySearch(q, i === 0 ? TAVILY_SONUC_LIMITI : 2).catch(() => []),
+    ),
+  );
+  const parts = [TAVILY_BASLIK];
+  for (const g of groups) {
+    if (!g.length) continue;
+    for (const r of g) {
+      let host = "";
+      try {
+        host = new URL(r.url).hostname.replace(/^www\./, "");
+      } catch {
+        host = r.url.slice(0, 60);
+      }
+      parts.push(`1. ${r.title} — ${host}\n   ${r.content.replace(/\s+/g, " ").trim()}`);
+    }
+    parts.push("");
+  }
+  return parts.join("\n").trim();
+}
+
+async function sonarResearch(sonarPrompt) {
+  if (!sonarPrompt) return "";
+  const hit = cacheGet(sonarCache, sonarPrompt, 30 * 60 * 1000);
+  if (hit) return hit;
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": "https://ganian.com",
+      "X-Title": "Ganian",
+    },
+    body: JSON.stringify({
+      model: "perplexity/sonar",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Sen Türkiye at yarışları (TJK) üzerine uzmanlaşmış bir araştırma editörüsün. Verilen görevi web'de araştırıp kaynaklı ve kompakt bir özet üretirsin. Uydurma yasak: bulamadığın bilgiyi 'yok' yazarsın. Sonuç garantisi vermezsin, bahis tavsiyesi yapmazsın.",
+        },
+        { role: "user", content: sonarPrompt },
+      ],
+      max_tokens: 8000,
+    }),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`Sonar HTTP ${r.status}: ${text.slice(0, 200)}`);
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Sonar geçersiz yanıt (HTTP ${r.status})`);
+  }
+  const digest = data?.choices?.[0]?.message?.content?.trim() || "";
+  if (digest) cacheSet(sonarCache, sonarPrompt, digest, 50);
+  return digest;
+}
+
+// gpt-5-nano: ham arama sonuçlarını yapılandırılmış özete çevirir (en ucuz adım).
+// Not: talimatı tek user mesajında gönderiyoruz — gpt-5 ailesi chat completions'ta
+// system rolünü bazen reddediyor; hata olursa ham blok fallback olarak gider.
+async function nanoSentez(gorev, icerik, maxTokens) {
+  if (!OPENAI_API_KEY || !icerik) return "";
+  try {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-5-nano",
+        max_completion_tokens: maxTokens || 2000,
+        messages: [
+          {
+            role: "user",
+            content:
+              "Sen bir araştırma editörüsün: verilen ham web sonuçlarını yapılandırılmış kısa özete çevirirsin. " +
+              "Uydurma yasak: kaynakta olmayan bilgiyi yazmazsın; olmayanı 'yok' olarak işaretlersin.\n\n" +
+              `${icerik}\n\n---\n${gorev}`,
+          },
+        ],
+      }),
+    });
+    const text = await r.text();
+    if (!r.ok) {
+      console.error(`[arastirma] nano hatası (${r.status}):`, text.slice(0, 200));
+      return "";
+    }
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      return "";
+    }
+    return data?.choices?.[0]?.message?.content?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+const NANO_GOREV_TAVILY =
+  "Görev: Yukarıdaki ham web sonuçlarından şu başlıkları çıkar:\n" +
+  "## At Bazlı Bulgular — her at için ayrı satır(lar): idman/galop, jokey formu, antrenör formu, pedigri, son dakika. Olmayan için 'yok'.\n" +
+  "## Uzman Yorumları — kaynak adı + URL + gösterdiği favori at (koşuya eşleşmeyen yorumları alma).\n" +
+  "## Pist Notu — tek kısa paragraf.\n" +
+  "Sadece bu başlıkları yaz; toplam ≤600 kelime; kaynak adlarını koru.";
+
+const NANO_GOREV_BIRLESTIR =
+  "Görev: Aşağıdaki iki araştırma özetini TEK bir özette birleştir. Aynı bilgiyi tekilleştir; çelişkiyi 'kaynaklar farklı söylüyor' notuyla koru. " +
+  "Yapı: ## At Bazlı Bulgular / ## Uzman Yorumları / ## Pist Notu / ## Kaynakça (tüm URL'ler). Toplam ≤800 kelime.";
+
+app.post("/api/analiz/arastirma", async (req, res) => {
+  const depth = req.body?.depth === "orta" ? "orta" : req.body?.depth === "yuksek" ? "yuksek" : "dusuk";
+  const queries = (Array.isArray(req.body?.queries) ? req.body.queries : [])
+    .map((q) => String(q ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  const sonarPrompt = typeof req.body?.sonarPrompt === "string" ? req.body.sonarPrompt.slice(0, 60000) : "";
+  if (!queries.length && !sonarPrompt) return res.status(400).json({ error: "Sorgu yok", digest: "" });
+
+  // Anahtar yoksa otomatik güvenli düşüş: orta/yüksek → düşük; düşük için de
+  // Tavily yoksa istemci analizini araştırmadan devam eder.
+  let used = depth;
+  if ((used === "orta" || used === "yuksek") && !OPENROUTER_API_KEY) used = "dusuk";
+  if (used === "yuksek" && !TAVILY_API_KEY) used = "orta";
+  if (used === "dusuk" && !TAVILY_API_KEY) {
+    return res.status(501).json({ error: "TAVILY_API_KEY tanımlı değil", code: "NO_RESEARCH_KEY", digest: "" });
+  }
+
+  try {
+    if (used === "orta") {
+      const digest = await sonarResearch(sonarPrompt);
+      return res.json({ depth: used, digest });
+    }
+    if (used === "yuksek") {
+      const [tavilyBlock, sonarDigest] = await Promise.all([
+        buildTavilyDigest(queries).catch(() => ""),
+        sonarResearch(sonarPrompt).catch(() => ""),
+      ]);
+      const digest = await nanoSentez(NANO_GOREV_BIRLESTIR, `=== ÖZET A (domain hedefli) ===\n${tavilyBlock}\n\n=== ÖZET B (geniş tarama) ===\n${sonarDigest}`, 3000);
+      return res.json({
+        depth: used,
+        digest: digest || sonarDigest || tavilyBlock,
+        raw: !digest && !sonarDigest && Boolean(tavilyBlock),
+      });
+    }
+    // dusuk: Tavily + nano özet; nano başarısızsa (kota vb.) ham blok + raw
+    // bayrağı gider — istemci kendi anahtarıyla nano özeti dener.
+    const tavilyBlock = await buildTavilyDigest(queries).catch(() => "");
+    const digest = tavilyBlock ? await nanoSentez(NANO_GOREV_TAVILY, tavilyBlock, 2000) : "";
+    return res.json({ depth: used, digest: digest || tavilyBlock, raw: !digest && Boolean(tavilyBlock) });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Araştırma başarısız", digest: "" });
+  }
+});
+
 app.post("/api/analiz", async (req, res) => {
   if (!OPENAI_API_KEY) {
     return res.status(501).json({ error: "Sunucuda API anahtarı yok (OPENAI_API_KEY tanımlı değil)", code: "NO_SERVER_KEY" });
@@ -245,6 +476,10 @@ app.post("/api/analiz", async (req, res) => {
 
   // GPT-6 Astra none effort desteklemez
   if (/^gpt-6/i.test(model) && effort === "none") effort = "low";
+
+  // İstemci araştırma özetini prompt'a eklediyse (haveResearch) modelin kendi
+  // web_search aracını kapatırız — çifte arama ücreti olmasın.
+  const haveResearch = req.body?.haveResearch === true;
 
   const headers = {
     "Content-Type": "application/json",
@@ -268,7 +503,7 @@ app.post("/api/analiz", async (req, res) => {
           "istatistik çerçevesindedir; para miktarı tavsiye etmez, bahis oynatmazsın. " +
           "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir.",
           input: prompt,
-          tools: [{ type: "web_search" }],
+          ...(haveResearch ? {} : { tools: [{ type: "web_search" }] }),
           ...(canReason ? { reasoning: { effort } } : {}),
           max_output_tokens: maxOut,
         }),

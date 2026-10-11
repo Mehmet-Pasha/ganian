@@ -106,6 +106,38 @@ export function clearGptKey() {
   }
 }
 
+// OpenRouter anahtarları "sk-or-" ile başlar; geri kalan her şey OpenAI sayılır.
+export function isOpenRouterKey(key: string): boolean {
+  return /^sk-or-/i.test((key || "").trim());
+}
+
+// Araştırma derinliği: analizden AYRI bir katman. Düşük = en ucuz.
+export type ArastirmaDerinlik = "dusuk" | "orta" | "yuksek";
+export const ARASTIRMA_DERINLIK_STORAGE = "mahmuz:arastirma";
+export const ARASTIRMA_DERINLIKLERI = [
+  { id: "dusuk", label: "Düşük — Tavily + nano özet (en ucuz)" },
+  { id: "orta", label: "Orta — Perplexity Sonar (geniş tarama)" },
+  { id: "yuksek", label: "Yüksek — Sonar + Tavily hibrit (en geniş kapsam)" },
+] as const;
+
+export function getArastirmaDerinlik(): ArastirmaDerinlik {
+  try {
+    const v = (localStorage.getItem(ARASTIRMA_DERINLIK_STORAGE) || "").trim();
+    if (v === "dusuk" || v === "orta" || v === "yuksek") return v;
+  } catch {
+    /* yok say */
+  }
+  return "dusuk";
+}
+
+export function setArastirmaDerinlik(id: string) {
+  try {
+    localStorage.setItem(ARASTIRMA_DERINLIK_STORAGE, id);
+  } catch {
+    /* yok say */
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Prompt: değişkenler (yarış / atlar / jokeyler / antrenörler) bu fonksiyonla
 // doldurulur. Sabit talimat kısmı ANALIST_TALIMATI'nda durur.
@@ -262,10 +294,17 @@ Aşağıdaki kanalları tara; hangisinin gerçekten var ve erişilebilir olduğu
 **Kaynak adını bulduğun şekliyle, birebir yaz.** Emin olmadığın bir yayın veya yazar adını
 "muhtemelen" diye yazma. Var olmayan analist ismi üretmek kesinlikle yasaktır.
 
-## 3.3 Eşleştirme kuralı (kritik)
-Bulduğun her yorumun **tam olarak bu koşuya** ait olduğunu doğrula:
-hipodrom + tarih + koşu numarası + mesafe eşleşmeli. Eşleşmeyen veya belirsiz olan
-yorumu listeye alma. Farklı bir günün veya farklı bir ayağın tahminini karıştırma.
+## 3.3 Eşleştirme kuralı (pragmatik)
+Bir yorumun bu koşuya ait olduğu şöyle doğrulanır (zayıflıktan güçlüye):
+1. **En güçlü:** hipodrom + tarih + koşu numarası (+ mesafe) eşleşiyor.
+2. **Geçerli (Düşük ağırlık):** hipodrom + tarih eşleşiyor, koşu numarası verilmemiş,
+   AMA yorumda bu koşudaki bir atın adı açıkça geçiyor.
+3. **Geçersiz:** farklı tarih, farklı hipodrom, veya tarihi belirsiz — listeye alma,
+   "doğrulanamadı" olarak atla.
+- Eşleşmeyen yorumu eklemek yasaktır; ama 2. kuraldaki gibi eşleşebilenleri
+  katmanı gereksiz yere dışlama. Koşu numarası hiçbir kaynakta yazmıyorsa 2.
+  kuralı kurallı biçimde kullan.
+- Farklı bir günün veya farklı bir ayağın tahminini karıştırma.
 
 ## 3.4 Sonuç kirlenmesi filtresi
 {{KOSU_DURUMU}} "Sonuçlandı" ise: koşudan **sonra** yayımlanmış yorumları, sonuç
@@ -510,10 +549,29 @@ export type EnrichedHorse = {
   jockey: JockeyProfile | null;
 };
 
+// Uygulamanın KENDİ verisinden (liderlik API) gelen 30 günlük formlar —
+// bunun için web'de aranmaz; zaten kesin, güncel ve ücretsizdir.
+export type FormVerileri = {
+  jockeys?: { id: string; name: string; starts: number; wins: number; winPct: number }[];
+  trainers?: { id: string; name: string; starts: number; wins: number; winPct: number }[];
+};
+
+function trNorm(s: string): string {
+  return (s || "").toLocaleLowerCase("tr-TR").replace(/\s+/g, " ").trim();
+}
+
+function formSatiri(rows: NonNullable<FormVerileri["jockeys"]>, ad: string): string {
+  if (!rows?.length || !ad) return "veri yok";
+  const n = trNorm(ad);
+  const hit = rows.find((r) => trNorm(r.name) === n) || rows.find((r) => trNorm(r.name) && (n.includes(trNorm(r.name)) || trNorm(r.name).includes(n)));
+  return hit ? `30 gün: ${hit.starts} koşu / ${hit.wins} galibiyet (%${hit.winPct})` : "veri yok";
+}
+
 export function buildRaceAnalysisPrompt(
   meeting: Meeting,
   race: Race,
   enriched: EnrichedHorse[],
+  forms?: FormVerileri,
 ): string {
   const yarisBilgisi = [
     `Hipodrom: ${line(meeting.name)} (${line(meeting.city)})`,
@@ -559,6 +617,7 @@ export function buildRaceAnalysisPrompt(
 - Son 6'lı form: ${e?.form?.join("-") || "veri yok"} | Ganyan: ${line(e?.ganyan)} | AGF: ${line(e?.agf ? `%${e.agf} (${e.agfRank || "—"}.sıra)` : "veri yok")} | Takılar: ${e?.equipment?.map((t) => t.description || t.key).join(", ") || "veri yok"}${e?.scratched ? " | KOŞMAZ" : ""}${e?.coupled ? " | EKÜRİ" : ""}
 - Baba / Anne / Dede: ${line(h.sire)} / ${line(h.dam)} / ${line(h.damsire)} | Yetiştirici: ${line(h.breeder)}
 - Antrenör: ${line(h.trainer)} (programdaki: ${line(e?.trainerName)}) | Sahip: ${line(h.owner || h.runningOwner)}
+- Antrenör yakın dönem formu (uygulama verisi): ${formSatiri(forms?.trainers || [], e?.trainerName || h.trainer)}
 - Kariyer: ${careerBlock(h)}
 - Zemin istatistiği: ${surfaceLine(h.surfaceStats)}
 - Son 8 koşu:
@@ -589,6 +648,7 @@ ${pastRacesBlock(h)}`;
 - Dönemsel istatistik: ${(jockey?.periods || []).map((p) => `${p.label}: K${p.starts} 1:${p.first} 2:${p.second} %${p.winPct}`).join(" | ") || "veri yok"}
 - Son binişler: ${rides || "veri yok"}
 - Zemin/mesafe istatistiği: ${surfaceLine(jockey?.surfaceStats)}
+- Jokey yakın dönem formu (uygulama verisi): ${formSatiri(forms?.jockeys || [], e?.jockeyName || jockey?.name || "")}
 - ${ikili}`;
     })
     .filter(Boolean)
@@ -713,7 +773,10 @@ function openAiError(text: string, status: number): Error {
   try {
     const data = text ? JSON.parse(text) : null;
     const apiMsg =
-      (data as { error?: { message?: string } })?.error?.message || "";
+      (data as { error?: { message?: string } })?.error?.message ||
+      (typeof (data as { error?: unknown })?.error === "string" ? (data as { error: string }).error : "") ||
+      (data as { message?: string })?.message ||
+      "";
     if (apiMsg) msg = apiMsg;
   } catch {
     /* ham metni kullan */
@@ -725,22 +788,240 @@ function openAiError(text: string, status: number): Error {
   return new Error(msg);
 }
 
+// --- web araştırması (sunucu tarafı, derinlik seçilebilir) ---
+
+// Sorgular yarış bağlamından türetilir: koşu yorumları + AGF favorilerinin
+// idman/galop'u + pist durumu. Koşu TARİHİ sorgularda açıkça geçer — aksi halde
+// arama motorları haftalar önceki jenerik makaleleri döndürüyor (tespit edildi).
+export function buildResearchQueries(meeting: Meeting, race: Race): string[] {
+  const queries: string[] = [];
+  const city = (meeting.city || "").trim();
+  const trackLabel = (race.trackLabel || "").trim();
+  const tarih = trTarihEtiket(race.date);
+  const first = `${city} ${race.no}. koşu ${tarih} ${race.distance} m ${trackLabel} at yarışı tahmin yorum`
+    .replace(/\s+/g, " ")
+    .trim();
+  if (city) queries.push(first);
+
+  const favorites = [...race.horses]
+    .filter((h) => !h.scratched && h.name)
+    .sort((a, b) => (a.agfRank ?? 999) - (b.agfRank ?? 999))
+    .slice(0, 2);
+  for (const f of favorites) {
+    queries.push(`${f.name} at idman galop ${tarih}`);
+  }
+
+  if (city && trackLabel) {
+    queries.push(`${city} hipodrom pist durumu ${tarih}`);
+  }
+  return queries;
+}
+
+// race.date ISO (2026-10-11) ya da dd.mm.yyyy olabilir → "11 Ekim 2026" etiketi.
+function trTarihEtiket(date: string): string {
+  const AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+  let ymd = date || "";
+  if (/^\d{2}[./]\d{2}[./]\d{4}$/.test(ymd)) {
+    const [d, m, y] = ymd.split(/[./]/);
+    ymd = `${y}-${m}-${d}`;
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
+  if (!m) return "";
+  return `${Number(m[3])} ${AYLAR[Number(m[2]) - 1] || ""} ${m[1]}`.replace(/\s+/g, " ").trim();
+}
+
+// Perplexity Sonar'a verilen araştırma görevi: gömülü prompt'taki Bölüm 2 + 3'ün
+// sıkıştırılmış hâli. Sonar kendi arar, kaynaklı özet döner.
+export function buildSonarPrompt(meeting: Meeting, race: Race): string {
+  const horses = race.horses
+    .filter((h) => !h.scratched && h.name)
+    .map((h) => `${h.number}. ${h.name} (jokey: ${h.jockeyName}, antrenör: ${h.trainerName}${h.hp ? `, HP: ${h.hp}` : ""})`)
+    .join("\n");
+  const tarih = trTarihEtiket(race.date);
+  return [
+    `Türkiye at yarışı araştırması: ${meeting.city} ${race.no}. koşu — ${tarih || race.date}, ${race.distance} m ${race.trackLabel}.`,
+    "Koşudaki atlar:",
+    horses,
+    "",
+    "Görevin:",
+    "1) 'At Bazlı Bulgular' başlığı altında, koşudaki HER at için ayrı ayrı ara ve yaz: idman/galop durumu (son galop tarihi/derecesi), jokeyin güncel formu, antrenörün güncel formu, pedigri mesafe eğilimi, son dakika haberi (koşudan çıkma, jokey değişikliği, takı, sakatlık). Bulamadığını 'yok' yaz; asla uydurma.",
+    `2) 'Uzman Yorumları' başlığı altında, ${meeting.city} hipodromunun ${tarih || race.date} tarihli koşuları için yayımlanmış Türkçe analist tahminlerini topla. Her kaynak için: kaynak adı, URL, tek cümle özet, gösterdiği favori atların ADI/numarası. Şu kaynakları özellikle kontrol et: liderform.com.tr, yenibeygir.com, istinyeganyan.com, atyarisi.net, sozcu.com.tr altılı köşeleri, sporx.com, TJK program yorumları.`,
+    "3) 'Pist Notu' başlığı altında: hipodromun pist karakteri (viraj/düzlük/kulvar) ve güncel pist durumu.",
+    "Önemli: Yalnızca koşu günü veya en fazla 3 gün önce yayımlanmış analizleri kullan; tarihi belirsiz/eski sayfaları 'tarihsiz/eski' diye ayrı işaretle. Hangi tarihli olduğunu her kaynakta belirt.",
+    "Çıktı: kompakt markdown; ham arama metni yapıştırma; tüm kaynaklar sonda [n] kaynak adı + URL + tarih listesi hâlinde; toplam ~1200 kelimeyi geçmesin.",
+  ].join("\n");
+}
+
+// Özet, analiz prompt'una bu başlıkla eklenir; analist web'e çıkamaz.
+export const ARASTIRMA_BASLIK =
+  "# WEB ARAŞTIRMA ÖZETİ (sunucu tarafından önceden toplandı)\n\n" +
+  "Bölüm 2'deki web araştırması ve Bölüm 3'teki uzman taraması adımına bu özetle geldi. Web'e erişimin yok: " +
+  "2.1-2.6 bulgularını ve uzman listesini yalnızca bu özetteki 'At Bazlı Bulgular' / 'Uzman Yorumları' / 'Pist Notu' " +
+  "bölümlerinden kullan. Özette bulunmayan bilgiyi 'bulunamadı' yaz, uydurma. Kaynakça özet içindedir.\n\n";
+
+// Sunucudaki nano özetçi kotasız kalırsa (raw:true) ham bloğu cihaz anahtarıyla
+// özetleriz. gpt-5-nano: OpenAI'da sk-…, OpenRouter'da sk-or-… anahtarla çalışır.
+export const NANO_OZET_GOREVI =
+  "Görev: Yukarıdaki ham web sonuçlarından şu başlıkları çıkar:\n" +
+  "## At Bazlı Bulgular — her at için ayrı satır(lar): idman/galop, jokey formu, antrenör formu, pedigri, son dakika. Olmayan için 'yok'.\n" +
+  "## Uzman Yorumları — kaynak adı + URL + gösterdiği favori at (koşuya eşleşmeyen yorumları alma).\n" +
+  "## Pist Notu — tek kısa paragraf.\n" +
+  "Sadece bu başlıkları yaz; toplam ≤600 kelime; kaynak adlarını koru.";
+
+export async function nanoSentezCihaz(icerik: string, apiKey: string): Promise<string> {
+  if (!icerik || !apiKey) return "";
+  const talimat =
+    "Sen bir araştırma editörüsün: verilen ham web sonuçlarını yapılandırılmış kısa özete çevirirsin. " +
+    "Uydurma yasak: kaynakta olmayan bilgiyi yazmazsın; olmayanı 'yok' olarak işaretlersin.\n\n" +
+    `${icerik}\n\n---\n${NANO_OZET_GOREVI}`;
+  const openRouter = isOpenRouterKey(apiKey);
+  const url = openRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
+  const body: Record<string, unknown> = openRouter
+    ? {
+        model: "openai/gpt-5-nano",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: talimat }],
+      }
+    : {
+        model: "gpt-5-nano",
+        max_completion_tokens: 2000,
+        messages: [{ role: "user", content: talimat }],
+      };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (openRouter) {
+    try {
+      headers["HTTP-Referer"] = window.location.origin;
+      headers["X-Title"] = "Ganian";
+    } catch {
+      /* yok say */
+    }
+  }
+  try {
+    const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+    const text = await r.text();
+    if (!r.ok) return "";
+    let data: unknown = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      return "";
+    }
+    return (
+      (data as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content?.trim() || ""
+    );
+  } catch {
+    return "";
+  }
+}
+
+// OpenRouter: OpenAI ile uyumlu /chat/completions uç noktası (Responses API yok).
+
+// OpenRouter: OpenAI ile uyumlu /chat/completions uç noktası (Responses API yok).
+// Cihaz anahtarı sk-or-… ise analiz doğrudan OpenRouter'a gider. Web araştırması
+// Tavily/Sonar'dan gelmişse (haveResearch) arama eklentisi eklenmez.
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+async function callOpenRouterDevice(
+  prompt: string,
+  apiKey: string,
+  model: string,
+  effort: string,
+  haveResearch = false,
+): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+  try {
+    headers["HTTP-Referer"] = window.location.origin;
+    headers["X-Title"] = "Ganian";
+  } catch {
+    /* yok say */
+  }
+  const wantReason = !/^(none|minimal)$/i.test(effort) && /^(gpt-6|gpt-5|o[134])/i.test(model);
+  const rEffort = effort === "xhigh" ? "high" : effort;
+  const maxOut = model.toLowerCase().includes("3.5") ? 4000 : /^(gpt-6|gpt-5|o)/i.test(model) ? 16000 : 8192;
+
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
+                "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir: geçmiş performans verilerini " +
+                "yorumlar, olasılıkları tartışır, hiçbir sonucu garanti etmezsin. " +
+                "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir; para miktarı tavsiye edilmez.",
+            },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: maxOut,
+          ...(!haveResearch ? { plugins: [{ id: "web" }] } : {}),
+          ...(wantReason ? { reasoning: { effort: rEffort } } : {}),
+        }),
+      });
+    } catch {
+      throw new Error("OpenRouter'a ulaşılamadı (ağ hatası). İnternet/adblock kontrol et ya da sunucu anahtarını kullan.");
+    }
+    const text = await res.text();
+    if (res.ok) {
+      let data: unknown = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(`OpenRouter geçersiz yanıt döndü (HTTP ${res.status})`);
+      }
+      const out =
+        (data as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content?.trim() || "";
+      if (!out) throw new Error("OpenRouter boş yanıt döndü. Tekrar deneyin.");
+      return out;
+    }
+    // reasoning desteklemeyen model: muhakemesiz bir kez daha dene
+    if (wantReason && /reasoning|effort/i.test(text)) {
+      continue;
+    }
+    if (/429|rate limit|tokens per min|try again/i.test(text) && attempt < 4) {
+      await new Promise((r) => setTimeout(r, Math.min(2000 * attempt, 20000)));
+      continue;
+    }
+    throw openAiError(text, res.status);
+  }
+  throw new Error("OpenRouter isteği başarısız. Tekrar deneyin.");
+}
+
 export async function callGpt(
   prompt: string,
   apiKey: string,
   modelOverride?: string,
   effortOverride?: string,
+  haveResearch = false,
 ): Promise<string> {
   const model = modelOverride || getGptModel();
   const effort = effortOverride || getGptEffort();
 
   // 0) Önce sunucudaki gömülü anahtarı dene (anahtar tarayıcıya hiç verilmez).
-  // Sunucuda anahtar yoksa (501 NO_SERVER_KEY) cihaz anahtarıyla devam et.
+  // Cihazda anahtar varsa sağlayıcısını da bildiririz; sunucuda o sağlayıcının
+  // anahtarı yoksa (501 NO_SERVER_KEY) cihaz anahtarıyla devam eder.
   try {
     const r = await fetch("/api/analiz", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, model, effort }),
+      body: JSON.stringify({
+        prompt,
+        model,
+        effort,
+        haveResearch,
+        provider: apiKey ? (isOpenRouterKey(apiKey) ? "openrouter" : "openai") : undefined,
+      }),
     });
     const t = await r.text();
     let d: unknown = null;
@@ -758,12 +1039,19 @@ export async function callGpt(
     // 501 ise fallback: cihaz anahtarı
   } catch (e) {
     // Sunucu hatası gerçek bir analiz hatasıysa (401/403/429/kota) direkt göster,
-    // yoksa (sunucu kapalı / anahtar yok) cihaz anahtarıyla doğrudan OpenAI'ye düş.
+    // yoksa (sunucu kapalı / anahtar yok) cihaz anahtarıyla doğrudan sağlayıcıya düş.
     if (e instanceof Error && /401|403|429|Kota|geçersiz|reddedildi/i.test(e.message)) throw e;
   }
 
   if (!apiKey) {
-    throw new Error("Sunucuda API anahtarı yok ve cihazda anahtar girilmedi. Önce server'a OPENAI_API_KEY tanımla ya da Analiz penceresinden anahtar gir.");
+    throw new Error(
+      "Sunucuda API anahtarı yok ve cihazda anahtar girilmedi. Önce server'a OPENAI_API_KEY ya da OPENROUTER_API_KEY tanımla, ya da Analiz penceresinden anahtar gir (sk-… OpenAI, sk-or-… OpenRouter).",
+    );
+  }
+
+  // OpenRouter anahtarı (sk-or-…): doğrudan OpenRouter'a git
+  if (isOpenRouterKey(apiKey)) {
+    return callOpenRouterDevice(prompt, apiKey, model, effort, haveResearch);
   }
 
   const headers = {
@@ -792,7 +1080,7 @@ export async function callGpt(
           "istatistik çerçevesindedir; para miktarı tavsiye etmez, bahis oynatmazsın. " +
           "At numaralarından oluşan kupon şablonu editoryal içeriktir ve istendiğinde verilir.",
         input: prompt,
-        tools: [{ type: "web_search" }],
+        ...(haveResearch ? {} : { tools: [{ type: "web_search" }] }),
         ...(canReason ? { reasoning: { effort } } : {}),
         max_output_tokens: maxOut,
       }),
@@ -819,7 +1107,7 @@ export async function callGpt(
             "Sen bir spor medyası platformu için çalışan bir at yarışı editörü ve form analistisin. " +
             "Görevin yalnızca bilgilendirici ve eğitsel spor analizi üretmektir.",
           input: prompt,
-          tools: [{ type: "web_search" }],
+          ...(haveResearch ? {} : { tools: [{ type: "web_search" }] }),
           max_output_tokens: maxOut,
         }),
       });

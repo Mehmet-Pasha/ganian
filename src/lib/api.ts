@@ -73,3 +73,31 @@ export function getJockeyFavorites(ids: string[]): Promise<Record<string, Favori
   if (!ids.length) return Promise.resolve({});
   return getJson(`/api/oz/jokeyler?ids=${ids.map(encodeURIComponent).join(",")}`);
 }
+
+// Sunucu taraflı web araştırması (derinlik: dusuk | orta | yuksek).
+// Araştırma opsiyoneldir: sunucu araştıramazsa digest boş gelir ve analiz
+// eski davranışla (model kendi aramasıyla, anahtar varsa) devam eder.
+export async function postResearch(input: {
+  depth: string;
+  queries: string[];
+  sonarPrompt: string;
+}): Promise<{ depth: string; digest: string; raw: boolean }> {
+  const empty = { depth: input.depth, digest: "", raw: false };
+  let res: Response;
+  try {
+    res = await fetch("/api/analiz/arastirma", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return empty;
+  }
+  try {
+    const data = (await res.json()) as { depth?: string; digest?: string; raw?: boolean };
+    if (!res.ok || !data?.digest) return empty;
+    return { depth: data.depth || input.depth, digest: data.digest, raw: data.raw === true };
+  } catch {
+    return empty;
+  }
+}

@@ -3,7 +3,17 @@
 // (#9'daki toplu/toplantı kuyruğu da bu motoru kullanacak.)
 
 import { saveAnalysis } from "./analyses";
-import { buildRaceAnalysisPrompt, callGpt, collectRaceProfiles } from "./gpt";
+import { getLeaderboard, postResearch } from "./api";
+import {
+  ARASTIRMA_BASLIK,
+  buildRaceAnalysisPrompt,
+  buildResearchQueries,
+  buildSonarPrompt,
+  callGpt,
+  collectRaceProfiles,
+  getArastirmaDerinlik,
+  nanoSentezCihaz,
+} from "./gpt";
 import type { Meeting, Race } from "./types";
 
 export type JobState = "running" | "done" | "error";
@@ -106,8 +116,48 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
     });
     job.progress = `${model} analiz ediyor…`;
     emit();
-    const prompt = buildRaceAnalysisPrompt(meeting, race, enriched);
-    const out = await callGpt(prompt, apiKey, model, effort);
+
+    // Uygulamanın kendi 30 günlük liderlik verisi: jokey/antrenör yakın dönem
+    // formu prompt'a BURADAN gider — web'de aranması boşuna (ücretsiz + kesin).
+    let forms: Parameters<typeof buildRaceAnalysisPrompt>[3];
+    try {
+      const lb = await getLeaderboard(30);
+      forms = { jockeys: lb.jockeys, trainers: lb.trainers };
+    } catch {
+      /* liderlik opsiyonel */
+    }
+
+    let prompt = buildRaceAnalysisPrompt(meeting, race, enriched, forms);
+
+    // Araştırma katmanı (derinlik: düşük/orta/yüksek, kullanıcının seçimi).
+    // Özet üretilirse prompt'a eklenir ve analiz modeli web'e çıkmaz — arama
+    // maliyeti sabitlenir. Özet yoksa eski davranış: model kendi arar.
+    let haveResearch = false;
+    try {
+      const depth = getArastirmaDerinlik();
+      const depthLabel = depth === "dusuk" ? "düşük" : depth === "orta" ? "orta" : "yüksek";
+      job.progress = `Web araştırması (${depthLabel})…`;
+      emit();
+      const research = await postResearch({
+        depth,
+        queries: buildResearchQueries(meeting, race),
+        sonarPrompt: buildSonarPrompt(meeting, race),
+      });
+      let digest = research.digest;
+      // Sunucudaki nano özetçi kotasızsa (raw) ham bloğu cihaz anahtarıyla özetle.
+      if (research.raw && digest && apiKey) {
+        const ozet = await nanoSentezCihaz(digest, apiKey);
+        if (ozet) digest = ozet;
+      }
+      if (digest) {
+        prompt += "\n\n" + ARASTIRMA_BASLIK + digest;
+        haveResearch = true;
+      }
+    } catch {
+      /* araştırma opsiyonel — olmadan da analiz yapılır */
+    }
+
+    const out = await callGpt(prompt, apiKey, model, effort, haveResearch);
     job.result = out;
     job.state = "done";
     job.progress = "";

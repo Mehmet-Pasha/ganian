@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getJob, raceKeyOf, startAnalysis, subscribeJobs } from "@/lib/analysisRunner";
 import {
+  ARASTIRMA_DERINLIKLERI,
   GPT_EFFORTS,
   GPT_MODELS,
+  getArastirmaDerinlik,
   getGptEffort,
   getGptKey,
   getGptModel,
+  setArastirmaDerinlik,
   setGptEffort,
   setGptKey,
   setGptModel,
@@ -28,6 +31,7 @@ export function AnalysisDialog({
   const [keyInput, setKeyInput] = useState("");
   const [model, setModel] = useState(() => getGptModel());
   const [effort, setEffort] = useState(() => getGptEffort());
+  const [depth, setDepth] = useState(() => getArastirmaDerinlik());
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -173,6 +177,29 @@ export function AnalysisDialog({
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block text-xs text-subtle">
+                    Araştırma derinliği — analizden ayrı, aramayı bu kadarla sınırlar
+                  </span>
+                  <select
+                    value={depth}
+                    onChange={(e) => {
+                      setDepth(e.target.value as typeof depth);
+                      setArastirmaDerinlik(e.target.value);
+                    }}
+                    className="h-10 w-full rounded-lg bg-bg px-2 text-sm text-fg ring-1 ring-border"
+                  >
+                    {ARASTIRMA_DERINLIKLERI.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-[11px] text-subtle">
+                    Düşük: Tavily + nano özet (ücretsiz kota). Orta/Yüksek için sunucuda
+                    OPENROUTER_API_KEY gerekir; yoksa otomatik Düşük'e düşer.
+                  </span>
                 </label>
               </div>
               <div className="flex flex-wrap gap-2">

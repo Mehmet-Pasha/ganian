@@ -803,24 +803,25 @@ export type ResearchSourceRow = {
 export function parseResearchSources(digest: string): ResearchSourceRow[] {
   if (!digest) return [];
   const rows: ResearchSourceRow[] = [];
-  for (const line of digest.split("\n")) {
-    const s = line.trim();
-    const m = /^\[(\d+)\]\s*(.+)$/.exec(s);
+  for (const raw of digest.split("\n")) {
+    const pipe = raw.includes("|");
+    const s = raw.trim().replace(/^\|+|\|+$/g, "").trim(); // markdown tablo çitleri
+    const m = /^\[?(\d{1,2})\]?\s*[|—–-]?\s*(.+)$/.exec(s);
     if (!m) continue;
-    const parts = m[2].split("|").map((p) => p.trim());
-    if (parts.length < 2) continue;
-    const url = parts.find((p) => /^https?:\/\//i.test(p)) || "";
+    const segs = m[2].split(pipe ? /\||—|–/ : /—|–/).map((p) => p.trim()).filter(Boolean);
+    const url = segs.find((p) => /^https?:\/\//i.test(p)) || "";
     if (!url) continue;
-    const name = parts[0].replace(/^[\[\]0-9\s]+/, "").trim();
+    const name = segs.filter((p) => p !== url)[0]?.replace(/^[\[\]0-9\s.]+/, "").trim();
     if (!name) continue;
-    const rest = parts.filter((p) => p !== url);
+    const rest = segs.filter((p) => p !== url && p !== segs[0]);
     rows.push({
       no: Number(m[1]),
       name,
       url,
-      date: rest[0] || "",
-      weight: rest[1] || "",
-      picksRaw: rest[2] || "",
+      // boru şemasında sıralı alanlar; çizgi şemasında tarih yok, kalan cümle picks'e gider
+      date: pipe ? rest[0] || "" : "",
+      weight: pipe ? rest[1] || "" : "",
+      picksRaw: pipe ? rest.slice(2).join(" | ") : rest.join(" | "),
     });
   }
   return rows;

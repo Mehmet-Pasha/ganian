@@ -267,7 +267,9 @@ export function initBot({ app, helpers, pasif = false }) {
         const resMap = {};
         for (const h of race.horses) {
           const p = Number.parseInt(h.position, 10);
-          if (Number.isFinite(p) && p > 0 && h.no) resMap[Number(h.no)] = p;
+          // TJK nesnesinde program numarası h.number'dır (h.no değil — canlı tespit)
+          const n = Number(h.number ?? h.no);
+          if (Number.isFinite(p) && p > 0 && n) resMap[n] = p;
         }
         if (!Object.keys(resMap).length) continue;
         bet.status = evaluateBet(bet, resMap) ? "won" : "lost";
@@ -334,7 +336,11 @@ export function initBot({ app, helpers, pasif = false }) {
           }
         }
       }
-      const kontrol = await checkOpenBets().catch(() => ({ checked: 0 }));
+      const kontrol = await checkOpenBets().catch((e) => {
+        // hata yutma: teşhis edilebilir olsun
+        console.error("[bot] sonuç kontrolü hatası:", e?.message || e);
+        return { checked: 0, error: e instanceof Error ? e.message : String(e) };
+      });
       sonTick = new Date().toISOString();
       saveState({ ...state });
       return { ran, kontrol, sonTick };

@@ -98,18 +98,20 @@ function normIso(d) {
 export function placeBets(botVeri, raceInfo, raceHorses = []) {
   const { raceKey, dateIso, meetingKey, raceNo, city, model, source } = raceInfo;
   const iso = normIso(dateIso) || normIso(new Date().toLocaleDateString("en-CA"));
-  const mevcut = new Set((raceHorses || []).map((h) => Number(h.no)).filter(Boolean));
+  // TJK nesnesinde alan adı number; istemciden gelen özetşte no olabilir.
+  const noOf = (h) => Number(h?.no ?? h?.number);
+  const mevcut = new Set((raceHorses || []).map(noOf).filter(Boolean));
 
   let order = [...(botVeri?.siralama || [])];
   // siralama zayıfsa AGF sırasından tamamla (agfRank küçük = favori).
   if (order.length < 4) {
     const varNo = new Set(order.map((o) => o.no));
     const agf = (raceHorses || [])
-      .filter((h) => h.agfRank != null && !varNo.has(Number(h.no)))
+      .filter((h) => h.agfRank != null && !varNo.has(noOf(h)))
       .sort((a, b) => a.agfRank - b.agfRank);
     for (const h of agf) {
       if (order.length >= 4) break;
-      order.push({ no: Number(h.no), ad: h.name || `At ${h.no}`, pct: 0 });
+      order.push({ no: noOf(h), ad: h.name || `At ${noOf(h)}`, pct: 0 });
     }
   }
   // yine de <4 ise kalan program numaralarından tamamla (son çare).
@@ -251,7 +253,8 @@ export function ozetHesapla(bets) {
 export function picksToNos(picksRaw, raceHorses) {
   if (!picksRaw) return [];
   const nos = new Set();
-  const byNo = new Map((raceHorses || []).map((h) => [Number(h.no), h]));
+  const noOf = (h) => Number(h?.no ?? h?.number);
+  const byNo = new Map((raceHorses || []).map((h) => [noOf(h), h]));
   const norm = (s) => (s || "").toLocaleLowerCase("tr-TR").replace(/\s+/g, " ").trim();
   const tokens = String(picksRaw).split(/[,;/\n]+/);
   for (const raw of tokens) {
@@ -268,7 +271,7 @@ export function picksToNos(picksRaw, raceHorses) {
     for (const h of raceHorses || []) {
       const hn = norm(h.name);
       if (hn && (hn === key || hn.includes(key) || key.includes(hn))) {
-        nos.add(Number(h.no));
+        nos.add(noOf(h));
         break;
       }
     }

@@ -436,7 +436,11 @@ const NANO_GOREV_TAVILY =
 
 const NANO_GOREV_BIRLESTIR =
   "Görev: Aşağıdaki araştırma çıktılarını TEK bir özette birleştir (şema: SON DAKİKA / UZMAN TABLOSU / PİST NOTU / BULUNAMAYANLAR). " +
-  "Aynı bilgiyi tekilleştir; çelişkiyi 'kaynaklar farklı söylüyor' notuyla koru. Uzman tablosunda her kaynağın URL + yayın tarihi alanını KORU. " +
+  "Kurallar: " +
+  "1) Tüm metinde TEK artan [n] numaralandırması kullan; aynı kaynağı tekilleştir, iki kez sayma. " +
+  "2) Uzman tablosunda her kaynağın URL + yayın tarihi alanını KORU. " +
+  "3) 'Program verisiyle aynı' teyit niteliğindeki son dakika satırlarını at (jokey/antrenör zaten biliniyorsa satır yok sayılır). " +
+  "4) Aynı bilgiyi tekilleştir; çelişkiyi 'kaynaklar farklı söylüyor' notuyla koru. " +
   "Uydurma yasak; Türkçe, kompakt; ≤900 kelime.";
 
 app.post("/api/analiz/arastirma", async (req, res) => {

@@ -699,7 +699,8 @@ export async function collectRaceProfiles(
 ): Promise<EnrichedHorse[]> {
   const ids = race.horses.map((h) => h.id).filter(Boolean);
   let done = 0;
-  const profiles = await pool(ids, 4, async (id) => {
+  // Limit 3: 13 atlık patlamada TJK'ya nazik davran (4+'ta rate-limit artıyor).
+  const profiles = await pool(ids, 3, async (id) => {
     try {
       const p = await getHorseProfile(id);
       return p;

@@ -447,45 +447,65 @@ export async function loadIdman(id) {
   return rows;
 }
 
+const horseCache = new Map(); // id -> { at, data }
+const horsePending = new Map(); // id -> Promise (paralel istekler tek fetch paylaşır)
+
 export async function loadHorse(id) {
-  return cached(`horse:${id}`, 180_000, async () => {
-    try {
-      const html = await fetchText(tjkHorseUrl(id), 18000);
-      const profile = parseHorsePage(id, html);
-      if (!profile.name) profile.name = `At ${id}`;
-      const statEntries = profile.races.map((r) => ({ track: r.track, distance: r.distance, position: r.position }));
-      profile.surfaceStats = computeSurfaceDistanceStats(statEntries);
-      // İdmanlar best-effort: sayfa çekilemezse boş döner, profili bozmaz.
-      profile.idmanlar = await loadIdman(id);
-      return profile;
-    } catch (err) {
-      return {
-        id,
-        name: `At ${id}`,
-        ageText: "",
-        birthDate: "",
-        hp: "",
-        sire: "",
-        sireId: "",
-        dam: "",
-        damsire: "",
-        trainer: "",
-        trainerId: "",
-        owner: "",
-        ownerId: "",
-        runningOwner: "",
-        breeder: "",
-        color: "",
-        sex: "",
-        career: [],
-        races: [],
-        idmanlar: [],
-        pedigree: { source: "yok", sample: 0, surface: null, distance: null },
-        surfaceStats: computeSurfaceDistanceStats([]),
-        error: err instanceof Error ? err.message : "At bilgisi alınamadı",
-      };
+  const hit = horseCache.get(id);
+  if (hit && Date.now() - hit.at < 180_000) return hit.data;
+  const pending = horsePending.get(id);
+  if (pending) return pending;
+
+  const job = (async () => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const html = await fetchText(tjkHorseUrl(id), 18000);
+        const profile = parseHorsePage(id, html);
+        if (!profile.name) profile.name = `At ${id}`;
+        const statEntries = profile.races.map((r) => ({ track: r.track, distance: r.distance, position: r.position }));
+        profile.surfaceStats = computeSurfaceDistanceStats(statEntries);
+        // İdmanlar best-effort: sayfa çekilemezse boş döner, profili bozmaz.
+        profile.idmanlar = await loadIdman(id);
+        // Yalnızca BAŞARILI profil cache'lenir — 13 atlık analiz patlamasında
+        // TJK'nın ara sıra verdiği 403/429 boş fallback'i 3 dakika saklamasın
+        // (canlı tespit: iki favori atın verisi sonraki analizde boşaldı).
+        horseCache.set(id, { at: Date.now(), data: profile });
+        return profile;
+      } catch (err) {
+        if (attempt >= 3) {
+          return {
+            id,
+            name: `At ${id}`,
+            ageText: "",
+            birthDate: "",
+            hp: "",
+            sire: "",
+            sireId: "",
+            dam: "",
+            damsire: "",
+            trainer: "",
+            trainerId: "",
+            owner: "",
+            ownerId: "",
+            runningOwner: "",
+            breeder: "",
+            color: "",
+            sex: "",
+            career: [],
+            races: [],
+            idmanlar: [],
+            pedigree: { source: "yok", sample: 0, surface: null, distance: null },
+            surfaceStats: computeSurfaceDistanceStats([]),
+            error: err instanceof Error ? err.message : "At bilgisi alınamadı",
+          };
+        }
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
     }
-  });
+  })().finally(() => horsePending.delete(id));
+
+  horsePending.set(id, job);
+  return job;
 }
 
 function rideFromHorse(dateIso, meeting, race, horse) {

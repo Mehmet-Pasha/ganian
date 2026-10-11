@@ -39,7 +39,7 @@ const STYLE = `
   .md-table td:first-child { font-weight: 600; width: 34%; }
   hr { border: none; border-top: 1px solid #d9cfA9; margin: 14px 0; }
   .warn { background: #fdf6e3; border: 1px solid #c9a24b; border-left: 5px solid #c9a24b; border-radius: 8px; padding: 10px 14px; margin-top: 16px; font-size: 9.5pt; page-break-inside: avoid; }
-  .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 7.5pt; color: #8a938a; padding: 6px 0; }
+  .footer { position: static; margin-top: 22px; text-align: center; font-size: 7.5pt; color: #8a938a; padding: 6px 0; }
   strong { color: #0d1f15; }
   .page-break { break-before: page; }
   .folder-index td:first-child { font-weight: 700; width: 18%; }

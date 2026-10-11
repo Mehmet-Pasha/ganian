@@ -4,6 +4,7 @@ import type {
   HorseProfile,
   JockeyProfile,
   Leaderboard,
+  PedigreeStats,
   PersonProfile,
   Region,
   SearchHit,
@@ -72,6 +73,12 @@ export function getHorseFavorites(ids: string[]): Promise<Record<string, Favorit
 export function getJockeyFavorites(ids: string[]): Promise<Record<string, Favorites>> {
   if (!ids.length) return Promise.resolve({});
   return getJson(`/api/oz/jokeyler?ids=${ids.map(encodeURIComponent).join(",")}`);
+}
+
+// Pedigri eğilimi (toplu): baba döllerinin son 30 gün zemin/mesafe performansı.
+export function getPedigreeBatch(ids: string[]): Promise<Record<string, PedigreeStats>> {
+  if (!ids.length) return Promise.resolve({});
+  return getJson(`/api/pedigree/toplu?ids=${ids.map(encodeURIComponent).join(",")}`);
 }
 
 // Sunucu taraflı web araştırması (derinlik: dusuk | orta | yuksek).

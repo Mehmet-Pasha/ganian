@@ -1,5 +1,5 @@
 import { getHorseProfile, getJockeyProfile } from "./api";
-import type { HorseProfile, JockeyProfile, Meeting, Race } from "./types";
+import type { HorseProfile, JockeyProfile, Meeting, PedigreeStats, Race } from "./types";
 
 export const GPT_MODEL = "gpt-6-sol";
 export const GPT_MODELS = [
@@ -241,24 +241,34 @@ Bu sıra, başkalarının tahminine erken demirlemeni (anchoring) engellemek iç
 
 # 2. ARAŞTIRMA PROTOKOLÜ (WEB)
 
-Her başlık için en az bir arama yap; sonuç zayıfsa farklı anahtar kelimelerle tekrar dene.
+**Önce şunu bil:** Aşağıdakilerin bir kısmı SADECE WEB'DE ARANIR, bir kısmı ise
+AT BLOKLARINDA zaten verilmiştir. At bloklarında verilen bilgilere dışarıda
+arama yapma — onları KENDİ yorumunla değerlendir, eksik tablosuna yazma:
 
-**2.1 İdman / galop durumu** — son galop tarihi ve derecesi, idman yoğunluğu, kondisyon notu.
-**2.2 Jokeyin güncel formu** — son 7-30 günlük verim, o hipodromdaki başarısı, tarzı
-(öncü/finişçi), ceza veya yasaklılık, ata ilk kez binip binmediği.
-**2.3 Antrenörün güncel formu** — son dönem kazanma yüzdesi, ahır formu, o hipodrom ve
-mesafedeki başarısı, aynı koşuda birden fazla atı varsa eküri taktiği ihtimali.
-**2.4 Pedigri mesafe eğilimi** — baba ve dede döllerinin tipik mesafe aralığı, zemin tercihi,
-erken olgunlaşma eğilimi.
-**2.5 Hipodrom pist karakteri** — viraj yapısı, düzlük uzunluğu, kulvar avantajı, öncü mü
-finişçi mi taşıdığı, ilgili mesafede tipik start-varış ilişkisi, güncel pist durumu haberi.
-**2.6 Son dakika haberleri** — koşudan çıkma, jokey değişikliği, takı değişikliği
-(gözlük, dil bağı, burun bandı), sakatlık veya ahır haberi.
+- **İdman/galop:** At bloklarında "Son idmanlar (TJK verisi)" satırında.
+  Kondisyon değerlendirmesini BU veriden sen yap: son çalışma tarihi (yakınlık),
+  çalışma sıklığı, split dereceleri pist ortalamasına göre hızlı mı, durum kodu.
+  "Kondisyon notu" diye dışarıda arama yapma.
+- **Jokey/antrenör güncel formu:** At ve Jokey bloklarında "yakın dönem formu
+  (uygulama verisi)" satırında (30 günlük istatistik). Değerlendirmeyi bu
+  istatistikten yap; "güncel değerlendirme" diye web'de makale arama.
+- **Pedigri eğilimi:** At bloklarında "Baba dölü eğilimi" satırında (yakın dönem
+  döl performansı). Veriliyorsa oradan kullan; yoksa baba/anne adının bilinen
+  genel karakterini kısaca yaz.
 
-**2.7 Eşitlik ve derinlik zorunluluğu**
-Yukarıdaki 2.1-2.6 araştırmasını koşudaki HER at için ayrı ayrı yap; favoriye 5 arama yapıp
+Web'de yalnızca şunlar aranır (her başlık için en az bir arama; sonuç zayıfsa
+farklı anahtar kelimelerle tekrar dene):
+
+**2.1 Son dakika haberleri** — koşudan çıkma, jokey değişikliği, takı
+değişikliği (gözlük, dil bağı, burun bandı), sakatlık veya ahır haberi.
+(Not: program verisinde "KOŞMAZ" işaretli atlar çıkmış sayılır; onu araştırmaya gerek yok.)
+
+**2.2 Uzman tahmin sayfaları** — Bölüm 3'teki tarama.
+
+**2.3 Eşitlik ve derinlik zorunluluğu**
+2.1 ve 2.2 araştırmasını koşudaki HER at için dene; favoriye 5 arama yapıp
 sürprize hiç bakmak yasaktır. Bir at için sonuç zayıfsa farklı anahtar kelimelerle
-(at adı + idman/galop, at adı + jokey, baba adı + döl, antrenör adı + form) en az 3 tur dene.
+(at adı + idman/galop, at adı + jokey, baba adı + döl, antrenör adı + form) en az 2 tur dene.
 "Bulunamadı" yazmak son çaredir: önce elindeki tüm arama varyasyonlarını tüket.
 Hiçbir atın bloğu diğerlerinden gözle görülür kısa/geçiştirilmiş olmayacak.
 
@@ -276,8 +286,13 @@ Tüm kaynakları raporun sonundaki "## 📚 Kaynakça" bölümünde topla: her s
 Aşama A'da kendi görüşünü kurduktan sonra bu bölümü uygula.
 
 ## 3.1 Hedef ve kapsam
-- **En az 10 farklı güvenilir analist/kaynak** bul. 10 alt sınırdır; daha fazlasına
-  ulaşabiliyorsan ulaş (15-20 ideal). Sayıyı tutturmak için niteliksiz kaynak ekleme.
+- **Hedef: en az 10 farklı güvenilir analist/kaynak.** Daha fazlasına ulaşabiliyorsan
+  ulaş (15-20 ideal). Sayıyı tutturmak için niteliksiz kaynak ekleme.
+- **Gerçekçilik kuralı:** Bulabildiğin kadarıyla yetin — Türkiye'de her koşu için
+  10 bağımsız yorum her gün yayımlanmaz. 0-3 kaynak bulursan bunu normal bir durum
+  olarak karşıla: bölümü kısa yaz, "uzman verisi sınırlı" de ve konsensüs
+  yerine kendi Aşama A analizine ağırlık ver. Kaynak azlığı analizi kısaltma
+  ya da bozma nedeni değildir.
 - Her kaynak **bağımsız** sayılmalı. Aynı tahmini kopyalayan siteler, aynı yazarın farklı
   platformlardaki tekrarları veya bot/agregatör sayfaları tek kaynak sayılır.
 
@@ -445,9 +460,13 @@ Madde madde:
   (site verisi esas alındı notuyla)
 
 ## 🧾 Eksik Bilgi Tablosu
-Koşudaki HER at için tek satır — o at hakkında hangi dış bilgi bulunamadı:
-- {No} {At Adı}: {bulunamayan bilgiler, örn. "son idman, antrenör 30-günlük oranı" / bulunamadıysa "eksik yok"}
-Hiçbir atı atlama; bilgisi tam olan ata "eksik yok" yaz. Bu tablo, okurun hangi ata ne kadar güveneceğini gösterir.
+Koşudaki HER at için tek satır — o at hakkında **web'de aranmış ama bulunamamış** dış bilgi:
+- {No} {At Adı}: {bulunamayan bilgiler, örn. "son dakika haberi" / bulunamadıysa "eksik yok"}
+- AT BLOKLARINDA verilen bilgiler (idman/galop, yakın dönem jokey-antrenör formu,
+  baba dölü eğilimi, kariyer, zemin istatistiği) bu tabloya YAZILMAZ — onlar
+  araştırılmış değil, verilmiş bilgidir; değerlendirmen metinde yapılır.
+- Yalnızca gerçekten web'de aranmış ve bulunamamış kalem yazılır. Uydurma yok.
+Hiçbir atı atlama; eksiksiz ata "eksik yok" yaz. Bu tablo, okurun hangi ata ne kadar güveneceğini gösterir.
 
 ## ⚠️ Uyarı
 Bu analiz istatistik, form yorumu ve kamuya açık uzman görüşlerinin derlemesinden ibarettir;
@@ -574,6 +593,23 @@ function idmanBloku(h: HorseProfile): string {
   return rows.length ? rows.join(" || ") : "idman kaydı yok";
 }
 
+// Baba döllerinin yakın dönem (30 gün) performansı — Bölüm 2.4'ün veri kaynağı.
+// Analiz akışı /api/pedigree/toplu ile toplu çeker; profildeki optional pedigree
+// alanı da desteklenir (ileride sunucu profilde dönerse otomatik çalışır).
+type PedMap = Record<string, PedigreeStats | undefined>;
+
+function pedigreeBloku(h: HorseProfile, ped: PedMap | undefined): string {
+  const p = ped?.[h.id] || h.pedigree;
+  if (!p || p.source !== "yakin-donem" || !p.sample) return "yakın dönem baba dölü verisi yok";
+  const fmt = (s?: { starts: number; wins: number; winPct: number }) =>
+    s && s.starts ? `${s.starts}K/${s.wins}G (%${s.winPct})` : "veri yok";
+  return [
+    `örnek: ${p.sample} koşu`,
+    `mesafe — kısa: ${fmt(p.distance?.kisa)} | orta: ${fmt(p.distance?.orta)} | uzun: ${fmt(p.distance?.uzun)}`,
+    `zemin — çim: ${fmt(p.surface?.cim)} | kum: ${fmt(p.surface?.kum)} | sentetik: ${fmt(p.surface?.sentetik)}`,
+  ].join(" | ");
+}
+
 export type EnrichedHorse = {
   entryId: string;
   profile: HorseProfile;
@@ -603,6 +639,7 @@ export function buildRaceAnalysisPrompt(
   race: Race,
   enriched: EnrichedHorse[],
   forms?: FormVerileri,
+  pedigree?: Record<string, PedigreeStats | undefined>,
 ): string {
   const yarisBilgisi = [
     `Hipodrom: ${line(meeting.name)} (${line(meeting.city)})`,
@@ -651,6 +688,7 @@ export function buildRaceAnalysisPrompt(
 - Antrenör yakın dönem formu (uygulama verisi): ${formSatiri(forms?.trainers || [], e?.trainerName || h.trainer)}
 - Kariyer: ${careerBlock(h)}
 - Son idmanlar (TJK verisi): ${idmanBloku(h)}
+- Baba dölü eğilimi (yakın dönem verisi): ${pedigreeBloku(h, pedigree)}
 - Zemin istatistiği: ${surfaceLine(h.surfaceStats)}
 - Son 8 koşu:
 ${pastRacesBlock(h)}`;

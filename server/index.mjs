@@ -13,6 +13,7 @@ import {
   loadPerson,
   loadSiblings,
   loadVideoUrl,
+  pedigreeBatch,
   searchNames,
 } from "./tjk/client.mjs";
 
@@ -181,6 +182,24 @@ app.get("/api/oz/jokeyler", async (req, res) => {
   if (!ids.length) return res.json({});
   try {
     const data = await jockeyFavoritesBatch(ids);
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Bilgi alınamadı" });
+  }
+});
+
+// Pedigri eğilimi (toplu): baba döllerinin son 30 gün zemin/mesafe performansı.
+app.get("/api/pedigree/toplu", async (req, res) => {
+  const raw = safeQueryString(req.query.ids);
+  const ids = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter(idOk)
+    .slice(0, 30);
+  if (!ids.length) return res.json({});
+  try {
+    const data = await pedigreeBatch(ids);
     res.json(data);
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : "Bilgi alınamadı" });

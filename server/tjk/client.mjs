@@ -320,6 +320,43 @@ export async function jockeySurfaceStats(id) {
   return computeSurfaceDistanceStats(entries);
 }
 
+// Pedigri eğilimi (toplu): atın babasının diğer döllerinin son 30 gündeki
+// koşularından zemin/mesafe kazanma oranları. recentRunners çağrısı TEK sefer
+// yapılır (analiz akışında liderlik verisi gün kartlarını zaten ısıtmıştır).
+export async function pedigreeBatch(ids) {
+  const clean = [...new Set((ids || []).filter((x) => typeof x === "string" && x))];
+  if (!clean.length) return {};
+  const horses = await Promise.all(clean.map((id) => loadHorse(id).catch(() => null)));
+  const rows = await recentRunners(30);
+  const out = {};
+  // Program satırlarında baba adı "SATONO ARES (JPN)" gibi köken ekli olabilir;
+  // profildeki sade isimle eşleştirmek için parantezli kısmı at.
+  const sireNorm = (s) => s.replace(/\([^)]*\)/g, "").replace(/\s+/g, " ").trim().toLocaleUpperCase("tr-TR");
+  for (const [i, id] of clean.entries()) {
+    const horse = horses[i];
+    const sire = (horse?.sire || "").trim();
+    if (!sire) {
+      out[id] = { source: "yok", sample: 0, surface: null, distance: null };
+      continue;
+    }
+    const upSire = sireNorm(sire);
+    const entries = [];
+    const seen = new Set();
+    for (const r of rows) {
+      const h = r.horse;
+      if (!h.sire || sireNorm(h.sire) !== upSire) continue;
+      if (h.id === id || seen.has(`${h.id}:${r.race.id}`)) continue;
+      seen.add(`${h.id}:${r.race.id}`);
+      const pos = Number.parseInt(h.position, 10);
+      if (!Number.isFinite(pos) || pos <= 0) continue;
+      entries.push({ track: r.race.track, distance: r.race.distance, position: h.position });
+    }
+    const stats = computeSurfaceDistanceStats(entries);
+    out[id] = { source: stats.sample ? "yakin-donem" : "yok", sample: stats.sample, surface: stats.bySurface, distance: stats.byDistance };
+  }
+  return out;
+}
+
 export async function loadSiblings(horseId) {
   return cached(`siblings:${horseId}`, 300_000, async () => {
     const horse = await loadHorse(horseId);
@@ -431,6 +468,7 @@ export async function loadHorse(id) {
         career: [],
         races: [],
         idmanlar: [],
+        pedigree: { source: "yok", sample: 0, surface: null, distance: null },
         surfaceStats: computeSurfaceDistanceStats([]),
         error: err instanceof Error ? err.message : "At bilgisi alınamadı",
       };

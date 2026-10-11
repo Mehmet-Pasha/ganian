@@ -168,6 +168,13 @@ export type IdmanRow = {
   };
 };
 
+export type PedigreeStats = {
+  source: "yakin-donem" | "yok";
+  sample: number;
+  surface: Record<"cim" | "kum" | "sentetik", SurfaceStat> | null;
+  distance: Record<DistanceBucket, SurfaceStat> | null;
+};
+
 export type HorseProfile = {
   id: string;
   name: string;
@@ -189,6 +196,7 @@ export type HorseProfile = {
   career: CareerLine[];
   races: PastRace[];
   idmanlar: IdmanRow[];
+  pedigree?: PedigreeStats;
   surfaceStats: SurfaceDistanceStats;
   error?: string;
 };

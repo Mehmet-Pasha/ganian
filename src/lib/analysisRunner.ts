@@ -3,7 +3,8 @@
 // (#9'daki toplu/toplantı kuyruğu da bu motoru kullanacak.)
 
 import { saveAnalysis } from "./analyses";
-import { getLeaderboard, postResearch } from "./api";
+import { getLeaderboard, getPedigreeBatch, postResearch } from "./api";
+import type { PedigreeStats } from "./types";
 import {
   ARASTIRMA_BASLIK,
   buildRaceAnalysisPrompt,
@@ -128,6 +129,17 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
     }
 
     let prompt = buildRaceAnalysisPrompt(meeting, race, enriched, forms);
+
+    // Pedigri eğilimi (toplu, bedava): liderlik çağrısı gün kartlarını ısıttığı
+    // için bu istek sıcak cache'ten döner — ek TJK yükü yok denecek kadar az.
+    let pedigree: Record<string, PedigreeStats | undefined> | undefined;
+    try {
+      const ids = race.horses.map((h) => h.id).filter(Boolean);
+      pedigree = await getPedigreeBatch(ids);
+      prompt = buildRaceAnalysisPrompt(meeting, race, enriched, forms, pedigree);
+    } catch {
+      /* pedigri opsiyonel */
+    }
 
     // Araştırma katmanı (derinlik: düşük/orta/yüksek, kullanıcının seçimi).
     // Özet üretilirse prompt'a eklenir ve analiz modeli web'e çıkmaz — arama

@@ -17,6 +17,7 @@ import {
   searchNames,
 } from "./tjk/client.mjs";
 import { loadWeights, loadSources, ogrenmeEnjeksiyonu } from "./botEngine.mjs";
+import * as analizDeposu from "./analizDeposu.mjs";
 import { initBot } from "./bot.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -760,6 +761,30 @@ initBot({
     analizYap,
   },
   ...(BOT_ACIK ? {} : { pasif: true }),
+});
+
+// --- Analiz arşivi: cihaz deposu (sunucu diski). Tarayıcı belleği kullanılmaz. ---
+app.get("/api/analizler", (_req, res) => {
+  res.json(analizDeposu.listAnalizler());
+});
+
+app.post("/api/analizler/kaydet", (req, res) => {
+  const b = req.body || {};
+  if (!b.analysis || typeof b.analysis !== "string") return res.status(400).json({ error: "analysis yok" });
+  try {
+    const rec = analizDeposu.saveAnaliz(b);
+    res.json({ ok: true, id: rec.id });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Kayıt başarısız" });
+  }
+});
+
+app.delete("/api/analizler/:id", (req, res) => {
+  try {
+    res.json({ ok: analizDeposu.deleteAnaliz(req.params.id) });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Silme başarısız" });
+  }
 });
 
 // Üretimde derlenmiş frontend'i sun

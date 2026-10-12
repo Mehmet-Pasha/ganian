@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import * as analizDeposu from "./analizDeposu.mjs";
 import {
   loadBets,
   saveBets,
@@ -227,6 +228,26 @@ export function initBot({ app, helpers, pasif = false }) {
     };
     saveSources(srcMap);
     saveBotAnalysis(raceKey, text);
+    // Bot analizleri de ana arşive düşer (Analizler sayfasında görünür)
+    try {
+      analizDeposu.saveAnaliz({
+        id: `bot-${raceKey.replace(/[^A-Za-z0-9_-]+/g, "_").slice(-60)}-${Date.now()}`,
+        savedAt: new Date().toISOString(),
+        dateLabel: race.date,
+        city: meeting.city,
+        meetingName: meeting.name,
+        meetingKey: meeting.key,
+        raceNo: race.no,
+        model: CFG.model,
+        effort: CFG.effort,
+        analysis: text,
+        meeting,
+        race,
+        kaynak: "bot",
+      });
+    } catch {
+      /* arşiv opsiyonel */
+    }
 
     const state = loadState();
     state.analyzedKeys = state.analyzedKeys || [];

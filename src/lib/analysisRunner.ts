@@ -2,7 +2,7 @@
 // Sayfa açık olduğu sürece çalışır; biten iş Analizler sekmesine kaydedilir.
 // (#9'daki toplu/toplantı kuyruğu da bu motoru kullanacak.)
 
-import { saveAnalysis } from "./analyses";
+import { saveAnalysisRemote } from "./analyses";
 import { getLeaderboard, getPedigreeBatch, postResearch } from "./api";
 import type { PedigreeStats } from "./types";
 import {
@@ -179,10 +179,11 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
     job.state = "done";
     job.progress = "";
 
-    // 1) ÖNCE kaydet (kullanıcının birincil beklentisi — Analizler sayfası)
+    // 1) ÖNCE kaydet — CİHAZ DEPOSUNA (sunucu diski); her analiz ayrı dosya,
+    //    hiçbiri otomatik değiştirilmez. Tarayıcı belleği kullanılmaz.
     try {
-      saveAnalysis({
-        id: job.id,
+      await saveAnalysisRemote({
+        id: `a-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
         savedAt: new Date().toISOString(),
         dateLabel: race.date,
         city: meeting.city,
@@ -194,9 +195,12 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
         analysis: out,
         meeting,
         race,
+        kaynak: "analiz",
       });
-    } catch {
-      /* depolama dolarsa analizi engelleme */
+    } catch (e) {
+      // kayıt başarısız: kullanıcı görsün (sessiz kayıp yok)
+      job.progress = `Kayıt hatası: ${e instanceof Error ? e.message : "kaydedilemedi"}`;
+      emit();
     }
 
     // 2) Bot hattı: raporun sonundaki "## 🤖 Bot Verisi" JSON'unu sunucuya gönder

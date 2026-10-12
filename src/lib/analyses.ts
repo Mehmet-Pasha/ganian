@@ -1,3 +1,7 @@
+// Analiz arşivi — sunucu diskinde (cihazda) saklanır; tarayıcı belleği
+// (localStorage) KULLANILMAZ. Eski localStorage kayıtları ilk açılışta
+// sunucuya taşınır (migrateLocalToServer) ve tarayıcıdan silinir.
+
 import type { Meeting, Race } from "./types";
 
 export type SavedAnalysis = {
@@ -13,10 +17,11 @@ export type SavedAnalysis = {
   analysis: string;
   meeting: Meeting;
   race: Race;
+  kaynak?: "analiz" | "bot";
 };
 
-const KEY = "mahmuz:analizler";
-const MAX = 100;
+const ESKI_KEY = "mahmuz:analizler";
+const TASINDI_KEY = "mahmuz:analizler-tasindi";
 
 function valid(a: unknown): a is SavedAnalysis {
   if (typeof a !== "object" || a === null) return false;
@@ -29,59 +34,67 @@ function valid(a: unknown): a is SavedAnalysis {
   );
 }
 
-export function loadAnalyses(): SavedAnalysis[] {
+export async function listAnalyses(): Promise<SavedAnalysis[]> {
+  const r = await fetch("/api/analizler");
+  if (!r.ok) throw new Error(`Analizler alınamadı (HTTP ${r.status})`);
+  const d = (await r.json()) as unknown;
+  return Array.isArray(d) ? d.filter(valid) : [];
+}
+
+export async function saveAnalysisRemote(a: SavedAnalysis): Promise<void> {
+  const r = await fetch("/api/analizler/kaydet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(a),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!r.ok) {
+    const d = (await r.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(d?.error || `Analiz kaydedilemedi (HTTP ${r.status})`);
+  }
+}
+
+export async function deleteAnalysisRemote(id: string): Promise<void> {
+  await fetch(`/api/analizler/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+// --- bir kez: eski localStorage kayıtlarını sunucuya taşı ---
+
+export function eskiKayitSayisi(): number {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
+    if (localStorage.getItem(TASINDI_KEY)) return 0;
+    const raw = localStorage.getItem(ESKI_KEY);
+    if (!raw) return 0;
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    const items = parsed.filter(valid);
-    // Aynı koşunun birden çok tekrarını tekilleştir (en yenisi kalır) —
-    // kota baskısını da azaltır.
-    const byKey = new Map<string, SavedAnalysis>();
-    for (const a of items) {
-      const key = `${a.meetingKey}::${a.raceNo}::${a.dateLabel}`;
-      const prev = byKey.get(key);
-      if (!prev || new Date(a.savedAt) > new Date(prev.savedAt)) byKey.set(key, a);
-    }
-    return [...byKey.values()].sort(
-      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime(),
-    );
+    return Array.isArray(parsed) ? parsed.filter(valid).length : 0;
   } catch {
-    return [];
+    return 0;
   }
 }
 
-function persist(items: SavedAnalysis[]) {
-  let deneme = items.slice(0, MAX);
-  // Kota dolunca sessizce kaybetme: en eskileri parça parça atıp tekrar dene.
-  for (;;) {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(deneme));
-      return true;
-    } catch {
-      if (deneme.length <= 1) return false; // tek kayıt bile sığmıyorsa teslim
-      deneme = deneme.slice(0, Math.max(1, deneme.length - 10));
+export async function migrateLocalToServer(): Promise<number> {
+  try {
+    if (localStorage.getItem(TASINDI_KEY)) return 0;
+    const raw = localStorage.getItem(ESKI_KEY);
+    if (!raw) {
+      localStorage.setItem(TASINDI_KEY, "1");
+      return 0;
     }
+    const parsed = JSON.parse(raw) as unknown;
+    const items = (Array.isArray(parsed) ? parsed : []).filter(valid);
+    let tasinan = 0;
+    for (const it of items) {
+      try {
+        await saveAnalysisRemote(it);
+        tasinan += 1;
+      } catch {
+        /* tek kayıt başarısızsa devam */
+      }
+    }
+    localStorage.setItem(TASINDI_KEY, "1");
+    localStorage.removeItem(ESKI_KEY); // tarayıcı belleği boşaltılır
+    return tasinan;
+  } catch {
+    return 0;
   }
-}
-
-export function saveAnalysis(a: SavedAnalysis): SavedAnalysis[] {
-  // Aynı koşunun tekrar analizleri ESKİSİNİ değiştirir (kota şişmesin):
-  // anahtar = toplantı::koşu::tarih
-  const key = `${a.meetingKey}::${a.raceNo}::${a.dateLabel}`;
-  const items = [
-    a,
-    ...loadAnalyses().filter(
-      (x) => x.id !== a.id && `${x.meetingKey}::${x.raceNo}::${x.dateLabel}` !== key,
-    ),
-  ];
-  persist(items);
-  return items;
-}
-
-export function deleteAnalysis(id: string): SavedAnalysis[] {
-  const items = loadAnalyses().filter((x) => x.id !== id);
-  persist(items);
-  return items;
 }

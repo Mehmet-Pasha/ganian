@@ -18,7 +18,6 @@ import {
   saveSources,
   saveBotAnalysis,
   placeBets,
-  hasBetsForRace,
   evaluateBet,
   updateSourceWeights,
   picksToNos,
@@ -72,7 +71,20 @@ export function initBot({ app, helpers, pasif = false }) {
     intervalMin: Number(process.env.BOT_INTERVAL_MIN || 20),
     maxRacesPerDay: Number(process.env.BOT_MAX_RACES_PER_DAY || 40),
     pencereSaat: Number(process.env.BOT_START_WINDOW_H || 14),
+    reanalizeMin: Number(process.env.BOT_REANALYZE_MIN || 60),
   };
+
+  // TEK yetkili state: hafızada tutulur, her mutasyon diske yazılır.
+  // (Eski yapıda runRaceForBot kendi kopyasını diske yazıyor, tick sonundaki
+  // bayat kopya onu eziyordu → analyzedKeys sıfırlanıp aynı koşu iki kez
+  // analiz ediliyordu — canlı tespit: Adana 1 iki kez gpt-5-mini raporu.)
+  let state = loadState();
+  state.enabled = state.enabled !== false;
+  state.scoredKeys = state.scoredKeys || [];
+  state.raceCount = state.raceCount || 0;
+  state.lastDay = state.lastDay || bugunIso();
+  state.failures = state.failures || 0;
+  const kaliciKaydet = () => saveState(state);
 
   let tickRunning = false;
   let sonTick = null;
@@ -198,7 +210,9 @@ export function initBot({ app, helpers, pasif = false }) {
     const raceKey = `${meeting.key}::${race.id || race.no}`;
     const bets = loadBets();
     let yerlesti = 0;
-    if (!hasBetsForRace(bets, raceKey)) {
+    {
+      // Her analiz KENDİ bahis setini kurar (eskisini ezmez) — kullanıcı
+      // aynı koşunun tekrar analizlerini ayrı ayrı izlemek istiyor.
       const yeni = placeBets(
         botVeri,
         {
@@ -248,11 +262,10 @@ export function initBot({ app, helpers, pasif = false }) {
     } catch {
       /* arşiv opsiyonel */
     }
-
-    const state = loadState();
-    state.analyzedKeys = state.analyzedKeys || [];
-    if (!state.analyzedKeys.includes(raceKey)) state.analyzedKeys.push(raceKey);
-    saveState(state);
+    // Bu koşu için son analiz zamanı — tekrar analiz gaz kelebeği buradan okur
+    state.sonAnalizler = state.sonAnalizler || {};
+    state.sonAnalizler[raceKey] = new Date().toISOString();
+    kaliciKaydet();
 
     console.log(
       `[bot] ${meeting.city} ${race.no}. koşu tamam | bahis: ${yerlesti} | botVeri: ${botVeri ? "ok" : "YOK (AGF fallback)"} | kaynak: ${sources.length}`,
@@ -271,7 +284,6 @@ export function initBot({ app, helpers, pasif = false }) {
       byDate.get(b.dateIso).push(b);
     }
 
-    const state = loadState();
     const scoredKeys = new Set(state.scoredKeys || []);
     const srcMap = loadSources();
     let weights = loadWeights();
@@ -322,13 +334,9 @@ export function initBot({ app, helpers, pasif = false }) {
     if (tickRunning) return { skipped: true };
     tickRunning = true;
     try {
-      const state = loadState();
-      state.analyzedKeys = state.analyzedKeys || [];
-      state.scoredKeys = state.scoredKeys || [];
       const today = tarih || bugunIso();
-      // gün değişti: analiz anahtarlarını ve günlük sayacı sıfırla
+      // gün değişti: günlük sayaç sıfırla (tekrar analiz gaz kelebeği ayrıdır)
       if (state.lastDay !== today) {
-        state.analyzedKeys = [];
         state.raceCount = 0;
         state.lastDay = today;
       }
@@ -344,8 +352,13 @@ export function initBot({ app, helpers, pasif = false }) {
           for (const race of meeting.races) {
             if (ran >= maxRaces || state.raceCount >= CFG.maxRacesPerDay) break;
             if (race.finished) continue;
-            const raceKey = `${meeting.key}::${race.id || race.no}`;
-            if (state.analyzedKeys.includes(raceKey)) continue;
+    const raceKey = `${meeting.key}::${race.id || race.no}`;
+    if (state.sonAnalizler?.[raceKey]) {
+      // Aynı koşu tekrar analiz EDİLEBİLİR (taze veri) — ama gaz kelebeğiyle:
+      // BOT_REANALYZE_MIN dakikadan sık değil (yoksa her tikte 40 koşu × maliyet).
+      const gecen = Date.now() - new Date(state.sonAnalizler[raceKey]).getTime();
+      if (gecen < CFG.reanalizeMin * 60_000) continue;
+    }
             const rk = kosuDakikasi(race.time);
             // Gün içi: startına az kaldı/başladıysa geç; pencere dışındaysa sonra tekrar dene.
             // Gelecek gün kartı: saat karşılaştırması gece yarısını kıramaz — sadece gün içi uygulanır.
@@ -447,11 +460,11 @@ export function initBot({ app, helpers, pasif = false }) {
   });
 
   // İstemcide tamamlanan manuel analizin bot verisi → bahis + kaynak kaydı
+  // (aynı koşunun tekrar analizlerine de izin verilir — her analiz kendi seti)
   app.post("/api/bot/veri", (req, res) => {
     const b = req.body || {};
     if (!b.raceKey || !b.botVeri) return res.status(400).json({ error: "raceKey/botVeri yok" });
     const bets = loadBets();
-    if (hasBetsForRace(bets, b.raceKey)) return res.json({ ok: true, skipped: true });
     const yeni = placeBets(
       b.botVeri,
       {

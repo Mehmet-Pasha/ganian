@@ -141,8 +141,9 @@ export function placeBets(botVeri, raceInfo, raceHorses = []) {
     createdAt: now,
   };
   const bets = [];
+  const uid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // set kimliği
   const add = (type, picks) => {
-    const id = `${raceKey}::${type}::${picks.join("-")}`;
+    const id = `${raceKey}::${type}::${picks.join("-")}::${uid}`;
     if (bets.some((b) => b.id === id)) return;
     bets.push({
       ...base,

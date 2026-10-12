@@ -20,7 +20,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg">
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-rail opacity-40" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 bg-rail opacity-40" />
       <header className="sticky top-0 z-40 border-b border-border/80 bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4">
           <Link to="/" className="flex shrink-0 items-center gap-2">

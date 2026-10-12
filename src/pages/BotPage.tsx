@@ -18,11 +18,18 @@ type BotBet = {
 
 type BotOzet = {
   enabled: boolean;
+  autoPaused: { reason: string; at: string } | null;
+  failures: number;
   config: { model: string; effort: string; depth: string; intervalMin: number; maxRacesPerDay: number };
   sonTick: string | null;
   raceCount: number;
   stats: { total: number; open: number; won: number; lost: number; hitPct: number | null; byType: Record<string, { total: number; open: number; won: number; lost: number }> };
-  weights: { domain: string; name: string; tests: number; hitPct: number; bankoPct: number }[];
+  weights: { domain: string; name: string; tests: number; hitPct: number; bankoPct: number; sonHitPct: number; sonBankoPct: number }[];
+  ogrenme: {
+    config: { model: string; depth: string; effort: string; total: number; won: number; lost: number; hitPct: number | null }[];
+    kalibrasyon: { kova: string; n: number; won: number; isabet: number | null }[];
+    sehir: { city: string; total: number; won: number; hitPct: number }[];
+  };
   bets: BotBet[];
 };
 
@@ -136,6 +143,13 @@ export function BotPage() {
         {mesaj ? <span className="block text-gold">{mesaj}</span> : null}
       </p>
 
+      {ozet.autoPaused ? (
+        <div className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger ring-1 ring-danger/40">
+          ⚠️ Bot 5 üst üste hata nedeniyle kendini otomatik duraklattı ({ozet.autoPaused.at}):{" "}
+          {ozet.autoPaused.reason}. Sorunu çözüp (ör. kota/anahtar) Başlat'a bas.
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Kutu label="Toplam bahis" deger={String(s.total)} />
         <Kutu label="Açık" deger={String(s.open)} />
@@ -175,15 +189,16 @@ export function BotPage() {
       {ozet.weights.length ? (
         <div className="rounded-xl ring-1 ring-border">
           <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
-            Kaynak isabet tablosu (bot öğrenmesi — en az 3 koşu ölçümü)
+            Kaynak isabet tablosu (bot öğrenmesi — ömür boyu + son 10 koşu penceresi)
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-subtle">
                 <th className="px-4 py-2">Kaynak</th>
                 <th className="px-4 py-2">Koşu</th>
-                <th className="px-4 py-2">İlk-3 isabet</th>
-                <th className="px-4 py-2">Banko isabet</th>
+                <th className="px-4 py-2">İlk-3</th>
+                <th className="px-4 py-2">Banko</th>
+                <th className="px-4 py-2">Son 10</th>
               </tr>
             </thead>
             <tbody>
@@ -195,6 +210,7 @@ export function BotPage() {
                   <td className="px-4 py-2 text-muted">{w.tests}</td>
                   <td className="px-4 py-2">%{w.hitPct}</td>
                   <td className="px-4 py-2">%{w.bankoPct}</td>
+                  <td className="px-4 py-2 text-fg">%{w.sonHitPct}</td>
                 </tr>
               ))}
             </tbody>
@@ -206,6 +222,83 @@ export function BotPage() {
           için birkaç gün gerekir. Öğrenme otomatik işler.
         </p>
       )}
+
+      {ozet.ogrenme.config.length ? (
+        <div className="rounded-xl ring-1 ring-border">
+          <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
+            Model/derinlik öğrenmesi — hangi kombinasyon daha isabetli?
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-subtle">
+                <th className="px-4 py-2">Model</th>
+                <th className="px-4 py-2">Derinlik</th>
+                <th className="px-4 py-2">Effort</th>
+                <th className="px-4 py-2">Bahis</th>
+                <th className="px-4 py-2">İsabet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ozet.ogrenme.config.map((c, i) => (
+                <tr key={c.model + c.depth + c.effort + i} className="border-t border-border/60">
+                  <td className="px-4 py-2 text-fg">{c.model}</td>
+                  <td className="px-4 py-2 text-muted">{c.depth}</td>
+                  <td className="px-4 py-2 text-muted">{c.effort}</td>
+                  <td className="px-4 py-2 text-muted">{c.total}</td>
+                  <td className="px-4 py-2 text-fg">{c.hitPct != null ? `%${c.hitPct}` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {ozet.ogrenme.kalibrasyon.some((k) => k.n > 0) ? (
+        <div className="rounded-xl ring-1 ring-border">
+          <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
+            Kalibrasyon — modelin yüksek verdiği yüzdeler gerçekten tutuyor mu?
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-subtle">
+                <th className="px-4 py-2">Güven kovası</th>
+                <th className="px-4 py-2">Ganyan bahsi</th>
+                <th className="px-4 py-2">Tutan</th>
+                <th className="px-4 py-2">İsabet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ozet.ogrenme.kalibrasyon.map((k) => (
+                <tr key={k.kova} className="border-t border-border/60">
+                  <td className="px-4 py-2 text-fg">{k.kova}</td>
+                  <td className="px-4 py-2 text-muted">{k.n}</td>
+                  <td className="px-4 py-2 text-muted">{k.won}</td>
+                  <td className="px-4 py-2 text-fg">{k.isabet != null ? `%${k.isabet}` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="px-4 py-2 text-xs text-subtle">
+            Sağlıklı kalibrasyon: yuksek kovası orta/dusuk'ten belirgin daha isabetli. Değilse
+            modelin yüzdeleri güvenilir sayılmaz.
+          </p>
+        </div>
+      ) : null}
+
+      {ozet.ogrenme.sehir.length ? (
+        <div className="rounded-xl ring-1 ring-border">
+          <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
+            Hipodrom bazında isabet
+          </div>
+          <div className="flex flex-wrap gap-2 px-4 py-3">
+            {ozet.ogrenme.sehir.map((c) => (
+              <span key={c.city} className="rounded-full bg-surface px-3 py-1 text-xs text-fg ring-1 ring-border">
+                {c.city}: {c.won}/{c.total} (%{c.hitPct})
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {ozet.bets.length ? (
         <div className="overflow-hidden rounded-xl ring-1 ring-border">

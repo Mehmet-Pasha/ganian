@@ -195,6 +195,8 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
             raceNo: race.no,
             city: meeting.city,
             model,
+            effort,
+            depth: getArastirmaDerinlik(),
             botVeri,
             digest: arastirmaVerisi,
             raceHorses: race.horses.map((h) => ({ no: h.number, name: h.name, agfRank: h.agfRank })),

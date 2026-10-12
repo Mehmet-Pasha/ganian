@@ -22,6 +22,10 @@ import {
   updateSourceWeights,
   picksToNos,
   ozetHesapla,
+  configOzeti,
+  kalibrasyonOzeti,
+  sehirOzeti,
+  sonNIsabet,
 } from "./botEngine.mjs";
 import {
   buildRaceAnalysisPrompt,
@@ -71,7 +75,6 @@ export function initBot({ app, helpers, pasif = false }) {
 
   let tickRunning = false;
   let sonTick = null;
-
   function fallbackProfil(e, i) {
     return {
       id: e.id || `prog-${i}`,
@@ -204,6 +207,8 @@ export function initBot({ app, helpers, pasif = false }) {
           raceNo: race.no,
           city: meeting.city,
           model: CFG.model,
+          effort: CFG.effort,
+          depth: CFG.depth,
           source: "bot",
         },
         race.horses,
@@ -326,8 +331,22 @@ export function initBot({ app, helpers, pasif = false }) {
             if (ayniGun && rk != null && (rk < now + 5 || rk > now + CFG.pencereSaat * 60)) continue;
             try {
               await runRaceForBot(meeting, race, today);
+              // başarılı koşu: arıza sayacını sıfırla
+              if (state.failures) state.failures = 0;
             } catch (err) {
-              console.error(`[bot] ${meeting.city} ${race.no}. koşu hata:`, err?.message?.slice(0, 200));
+              state.failures = (state.failures || 0) + 1;
+              console.error(`[bot] ${meeting.city} ${race.no}. koşu hata (${state.failures}. üst üste):`, err?.message?.slice(0, 200));
+              // 5 üst üste hata = sistemde gerçek sorun (anahtar bitti, TJK kapıldı vb.)
+              // → kendini duraklat; kullanıcı BotPage'den tekrar açar.
+              if (state.failures >= 5) {
+                state.enabled = false;
+                state.autoPaused = {
+                  reason: (err?.message || "bilinmeyen hata").slice(0, 200),
+                  at: new Date().toISOString(),
+                };
+                console.error(`[bot] 5 üst üste hata → bot otomatik duraklatıldı`);
+                break;
+              }
             }
             // maxRaces: BAŞARISIZ denemeleri de say (tek kartı döktürmesin)
             state.raceCount += 1;
@@ -354,22 +373,34 @@ export function initBot({ app, helpers, pasif = false }) {
   app.get("/api/bot/ozet", (_req, res) => {
     const bets = loadBets();
     const weightsList = Object.entries(loadWeights())
-      .map(([domain, e]) => ({
-        domain,
-        name: e.name,
-        tests: e.tests,
-        hitPct: e.tests ? Math.round((e.hits / (e.tests * 3)) * 100) : 0,
-        bankoPct: e.bankoTests ? Math.round((e.bankoHits / e.bankoTests) * 100) : 0,
-      }))
-      .sort((a, b) => b.hitPct - a.hitPct);
+      .map(([domain, e]) => {
+        const son = sonNIsabet(e) || { hitPct: 0, bankoPct: 0 };
+        return {
+          domain,
+          name: e.name,
+          tests: e.tests,
+          hitPct: e.tests ? Math.round((e.hits / (e.tests * 3)) * 100) : 0,
+          bankoPct: e.bankoTests ? Math.round((e.bankoHits / e.bankoTests) * 100) : 0,
+          sonHitPct: son.hitPct,
+          sonBankoPct: son.bankoPct,
+        };
+      })
+      .sort((a, b) => b.sonHitPct - a.sonHitPct || b.hitPct - a.hitPct);
     const state = loadState();
     res.json({
       enabled: state.enabled !== false,
+      autoPaused: state.autoPaused || null,
+      failures: state.failures || 0,
       config: CFG,
       sonTick,
       raceCount: state.raceCount || 0,
       stats: ozetHesapla(bets),
       weights: weightsList,
+      ogrenme: {
+        config: configOzeti(bets),
+        kalibrasyon: kalibrasyonOzeti(bets),
+        sehir: sehirOzeti(bets),
+      },
       bets: [...bets].reverse().slice(0, 60),
     });
   });
@@ -409,6 +440,8 @@ export function initBot({ app, helpers, pasif = false }) {
         raceNo: b.raceNo || "",
         city: b.city || "",
         model: b.model || "manuel",
+        effort: b.effort || "",
+        depth: b.depth || "",
         source: "analiz",
       },
       Array.isArray(b.raceHorses) ? b.raceHorses : [],

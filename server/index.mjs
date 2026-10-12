@@ -16,7 +16,7 @@ import {
   pedigreeBatch,
   searchNames,
 } from "./tjk/client.mjs";
-import { loadWeights, weightsInjectionBlock } from "./botEngine.mjs";
+import { loadWeights, loadSources, ogrenmeEnjeksiyonu } from "./botEngine.mjs";
 import { initBot } from "./bot.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -471,8 +471,8 @@ async function arastirmaYap({ depth, queries = [], sonarPrompts = [] }) {
     return { depth: used, digest: "", raw: false, error: "TAVILY_API_KEY tanımlı değil", code: "NO_RESEARCH_KEY" };
   }
 
-  // Öğrenilmiş kaynak isabetlerini prompt'lara ekle (bot ölçümü → araştırmacı).
-  const enjeksiyon = weightsInjectionBlock(loadWeights());
+  // Öğrenilmiş ağırlıklar + kapsam hedefi (bot ölçümü → araştırmacıya geri besleme)
+  const enjeksiyon = ogrenmeEnjeksiyonu(loadWeights(), loadSources());
   if (enjeksiyon) prompts = prompts.map((p) => p + "\n" + enjeksiyon);
 
 

@@ -126,7 +126,20 @@ export function placeBets(botVeri, raceInfo, raceHorses = []) {
   const pctOf = (no) => order.find((o) => o.no === no)?.pct ?? 0;
   const adOf = (no) => order.find((o) => o.no === no)?.ad || `At ${no}`;
   const now = new Date().toISOString();
-  const base = { raceKey, dateIso: iso, meetingKey, raceNo: String(raceNo), city, model, source, createdAt: now };
+  // Öğrenme boyutları için model/effort/depth bahis kaydına gömülür —
+  // bets.json böylece tek kararlı öğrenme günlüğü olur.
+  const base = {
+    raceKey,
+    dateIso: iso,
+    meetingKey,
+    raceNo: String(raceNo),
+    city,
+    model: model || "",
+    effort: raceInfo.effort || "",
+    depth: raceInfo.depth || "",
+    source,
+    createdAt: now,
+  };
   const bets = [];
   const add = (type, picks) => {
     const id = `${raceKey}::${type}::${picks.join("-")}`;
@@ -200,39 +213,124 @@ export function updateSourceWeights(weights, raceKey, sources, resMap) {
     e.bankoTests += 1;
     e.bankoHits += banko;
     e.name = s.name || e.name;
-    e.races = [...(e.races || []).slice(-20), { raceKey, hits, banko }];
+    e.races = [...(e.races || []).slice(-25), { raceKey, hits, banko, ts: Date.now() }];
     w[host] = e;
     scored += 1;
   }
   return { weights: w, scored };
 }
 
-// Öğrenilen ağırlıkların araştırma prompt'larına enjekte edilecek özeti.
-// tests < 3 olanlar gürültü sayılır; isabet oranı yüksekten düşüğe listelenir.
-export function weightsInjectionBlock(weights) {
+// --- genişletilmiş öğrenme: tüm boyutlar bets.json'dan türetilir ---
+
+// Kaynağın son N koşu penceresindeki isabeti (siteler zamanla değişir — tazelik)
+export function sonNIsabet(e, n = 10) {
+  const rs = (e.races || []).slice(-n);
+  if (!rs.length) return null;
+  const maxHits = rs.length * 3;
+  return {
+    hitPct: maxHits ? Math.round((rs.reduce((a, r) => a + (r.hits || 0), 0) / maxHits) * 100) : 0,
+    bankoPct: Math.round((rs.reduce((a, r) => a + (r.banko || 0), 0) / rs.length) * 100),
+  };
+}
+
+// Öğrenme enjeksiyonu v2: ömür boyu + tazelik penceresi + güven sınıfları +
+// kapsam (genişlik) hedefi. Arama prompt'larına ve BotPage özetine aynı kaynak.
+export function ogrenmeEnjeksiyonu(weights, sourcesMap) {
   const rows = Object.entries(weights || {})
     .filter(([, e]) => e && e.tests >= 3)
-    .map(([domain, e]) => ({
-      domain,
-      ...e,
-      hitPct: e.tests ? Math.round((e.hits / (e.tests * 3)) * 100) : 0,
-      bankoPct: e.bankoTests ? Math.round((e.bankoHits / e.bankoTests) * 100) : 0,
-    }))
-    .sort((a, b) => b.hitPct - a.hitPct);
-  if (!rows.length) return "";
-  const lines = rows.slice(0, 15).map(
-    (r) => `- ${r.domain}: ${r.tests} koşuda ilk-3 isabet ${r.hits}/${r.tests * 3} (%${r.hitPct}), banko isabet %${r.bankoPct}`,
-  );
-  const zayif = rows.filter((r) => r.hitPct <= 10).slice(-8).map((r) => r.domain);
-  return [
-    "",
-    "## GEÇMİŞ İSABET TABLOSU (sistem ölçümü — ağırlıklandırmada bunu esas al)",
-    ...lines,
-    zayif.length ? `Aşağıdaki kaynakların geçmişi zayıf ölçüldü: ${zayif.join(", ")} — bunlara Düşük ağırlık ver ve yalnızca yine de yeni veri sunduklarında an.` : "",
-    "Bu tablo kendi bahis sistemimizin geçmiş ölçümüdür; uydurma değil gerçek istatistiktir.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+    .map(([domain, e]) => {
+      const son = sonNIsabet(e) || { hitPct: 0, bankoPct: 0 };
+      return {
+        domain,
+        name: e.name,
+        tests: e.tests,
+        hitPct: e.tests ? Math.round((e.hits / (e.tests * 3)) * 100) : 0,
+        bankoPct: e.bankoTests ? Math.round((e.bankoHits / e.bankoTests) * 100) : 0,
+        sonHitPct: son.hitPct,
+      };
+    })
+    .sort((a, b) => b.sonHitPct - a.sonHitPct || b.hitPct - a.hitPct);
+
+  const lines = [];
+  const olculer = rows.filter((r) => r.tests >= 3);
+  if (olculer.length) {
+    lines.push("## GEÇMİŞ İSABET TABLOSU (sistemin kendi ölçümü — ağırlıklandırmada bunu ESAS al)");
+    for (const r of olculer.slice(0, 15)) {
+      const sinif = r.sonHitPct >= 25 ? "GÜVENİLİR → Yüksek ağırlık" : r.sonHitPct >= 12 ? "ORTA → normal ağırlık" : "ZAYIF → Düşük ağırlık, yalnızca yeni veri sunuyorsa an";
+      lines.push(`- ${r.domain}: ömür boyu ilk-3 %${r.hitPct} / banko %${r.bankoPct}; son 10 koşu ilk-3 %${r.sonHitPct} — ${sinif}`);
+    }
+    lines.push(`En güvenilir kaynaklar (tazelik penceresine göre): ${olculer.slice(0, 3).map((r) => r.domain).join(", ")}.`);
+  }
+
+  // Kapsam döngüsü: araştırmacının kaynak bulma verimi de ölçülür ve hedeflenir
+  const sonKosular = Object.entries(sourcesMap || {})
+    .slice(-5)
+    .map(([, v]) => (v?.sources || []).length);
+  if (sonKosular.length) {
+    const ort = sonKosular.reduce((a, b) => a + b, 0) / sonKosular.length;
+    lines.push(
+      ort < 4
+        ? `## KAPSAM HEDEFİ: son ${sonKosular.length} koşuda ortalama yalnız ${ort.toFixed(1)} isabetli kaynak buldun — bu SAYIYI ARTTIR: daha çok site tara, boş dönen kanallarda farklı anahtar kelimelerle ikinci tur dene (atı adı + galop, antrenör adı + ahır, hipodrom + altılı tahmin).`
+        : `## KAPSAM: son ${sonKosular.length} koşuda ortalama ${ort.toFixed(1)} kaynak — bu kapsamı koru.`,
+    );
+  }
+  return lines.length ? lines.join("\n") : "";
+}
+
+// Hangi model/derinlik kombinasyonu daha isabetli tahmin üretiyor?
+export function configOzeti(bets) {
+  const map = new Map();
+  for (const b of bets) {
+    const key = `${b.model || "?"} | ${b.depth || "?"} | ${b.effort || "?"}`;
+    const e = map.get(key) || { model: b.model || "?", depth: b.depth || "?", effort: b.effort || "?", total: 0, won: 0, lost: 0 };
+    e.total += 1;
+    if (b.status === "won") e.won += 1;
+    else if (b.status === "lost") e.lost += 1;
+    map.set(key, e);
+  }
+  return [...map.values()]
+    .map((e) => ({ ...e, hitPct: e.won + e.lost ? Math.round((e.won / (e.won + e.lost)) * 100) : null }))
+    .sort((a, b) => (b.hitPct ?? -1) - (a.hitPct ?? -1));
+}
+
+// Kalibrasyon: yüksek pct'li bankolar gerçekten daha mı sık tutuyor?
+export function kalibrasyonOzeti(bets) {
+  const buckets = {
+    "yuksek (pct≥30)": { n: 0, won: 0 },
+    "orta (10-30)": { n: 0, won: 0 },
+    "dusuk (pct<10)": { n: 0, won: 0 },
+  };
+  for (const b of bets) {
+    if (b.type !== "ganyan" || b.status === "open") continue;
+    const pct = Number(b.pct?.[0] ?? 0);
+    const k = pct >= 30 ? "yuksek (pct≥30)" : pct >= 10 ? "orta (10-30)" : "dusuk (pct<10)";
+    buckets[k].n += 1;
+    if (b.status === "won") buckets[k].won += 1;
+  }
+  return Object.entries(buckets).map(([k, v]) => ({
+    kova: k,
+    n: v.n,
+    won: v.won,
+    isabet: v.n ? Math.round((v.won / v.n) * 100) : null,
+  }));
+}
+
+// Hipodrom bazında isabet (farklı pistlerde tahmin kalitesi)
+export function sehirOzeti(bets) {
+  const map = new Map();
+  for (const b of bets) {
+    if (b.status === "open") continue;
+    const key = (b.city || "?").trim() || "?";
+    const e = map.get(key) || { city: key, total: 0, won: 0 };
+    e.total += 1;
+    if (b.status === "won") e.won += 1;
+    map.set(key, e);
+  }
+  return [...map.values()]
+    .filter((e) => e.total >= 2)
+    .map((e) => ({ ...e, hitPct: Math.round((e.won / e.total) * 100) }))
+    .sort((a, b) => b.hitPct - a.hitPct)
+    .slice(0, 8);
 }
 
 export function ozetHesapla(bets) {

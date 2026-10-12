@@ -35,22 +35,47 @@ export function loadAnalyses(): SavedAnalysis[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(valid);
+    const items = parsed.filter(valid);
+    // Aynı koşunun birden çok tekrarını tekilleştir (en yenisi kalır) —
+    // kota baskısını da azaltır.
+    const byKey = new Map<string, SavedAnalysis>();
+    for (const a of items) {
+      const key = `${a.meetingKey}::${a.raceNo}::${a.dateLabel}`;
+      const prev = byKey.get(key);
+      if (!prev || new Date(a.savedAt) > new Date(prev.savedAt)) byKey.set(key, a);
+    }
+    return [...byKey.values()].sort(
+      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime(),
+    );
   } catch {
     return [];
   }
 }
 
 function persist(items: SavedAnalysis[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(items.slice(0, MAX)));
-  } catch {
-    /* kota dolarsa sessizce yok say */
+  let deneme = items.slice(0, MAX);
+  // Kota dolunca sessizce kaybetme: en eskileri parça parça atıp tekrar dene.
+  for (;;) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(deneme));
+      return true;
+    } catch {
+      if (deneme.length <= 1) return false; // tek kayıt bile sığmıyorsa teslim
+      deneme = deneme.slice(0, Math.max(1, deneme.length - 10));
+    }
   }
 }
 
 export function saveAnalysis(a: SavedAnalysis): SavedAnalysis[] {
-  const items = [a, ...loadAnalyses().filter((x) => x.id !== a.id)];
+  // Aynı koşunun tekrar analizleri ESKİSİNİ değiştirir (kota şişmesin):
+  // anahtar = toplantı::koşu::tarih
+  const key = `${a.meetingKey}::${a.raceNo}::${a.dateLabel}`;
+  const items = [
+    a,
+    ...loadAnalyses().filter(
+      (x) => x.id !== a.id && `${x.meetingKey}::${x.raceNo}::${x.dateLabel}` !== key,
+    ),
+  ];
   persist(items);
   return items;
 }

@@ -179,9 +179,29 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
     job.state = "done";
     job.progress = "";
 
-    // Bot hattı: analistin sonundaki "## 🤖 Bot Verisi" JSON'unu sunucuya
-    // gönder; bot sanal bahis kurar + kaynakları kaydeder (sonuç sonrası
-    // isabet ölçümü bununla öğrenilir). Bot kapalıysa sunucu yine kaydeder.
+    // 1) ÖNCE kaydet (kullanıcının birincil beklentisi — Analizler sayfası)
+    try {
+      saveAnalysis({
+        id: job.id,
+        savedAt: new Date().toISOString(),
+        dateLabel: race.date,
+        city: meeting.city,
+        meetingName: meeting.name,
+        meetingKey: meeting.key,
+        raceNo: race.no,
+        model,
+        effort,
+        analysis: out,
+        meeting,
+        race,
+      });
+    } catch {
+      /* depolama dolarsa analizi engelleme */
+    }
+
+    // 2) Bot hattı: raporun sonundaki "## 🤖 Bot Verisi" JSON'unu sunucuya gönder
+    //    (sanal bahis + kaynak öğrenmesi). Zaman aşımı 10 sn: sunucu takılırsa
+    //    kaydı/sayfayı bloklamasın; hata olursa da analizi etkilemesin.
     try {
       const botVeri = extractBotVeri(out);
       if (botVeri) {
@@ -201,30 +221,13 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
             digest: arastirmaVerisi,
             raceHorses: race.horses.map((h) => ({ no: h.number, name: h.name, agfRank: h.agfRank })),
           }),
+          signal: AbortSignal.timeout(10_000),
         });
       }
     } catch {
       /* bot kaydı opsiyonel */
     }
 
-    try {
-      saveAnalysis({
-        id: job.id,
-        savedAt: new Date().toISOString(),
-        dateLabel: race.date,
-        city: meeting.city,
-        meetingName: meeting.name,
-        meetingKey: meeting.key,
-        raceNo: race.no,
-        model,
-        effort,
-        analysis: out,
-        meeting,
-        race,
-      });
-    } catch {
-      /* depolama dolarsa analizi engelleme */
-    }
     if (notify) notifyDone("Analiz hazır ✅", `${meeting.city} ${race.no}. koşu tamamlandı. Analizler sekmesinde.`);
   } catch (e) {
     job.state = "error";

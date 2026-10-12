@@ -157,7 +157,8 @@ araştırma hattına dokunmaz; onların çıktısını tüketir:
 
 - Her koşu için analistin rapor sonundaki **"## 🤖 Bot Verisi"** JSON bloğunu okur
   (banko / sürpriz / bomba + sıralama + yüzde) ve **16 sanal bahis** kurar:
-  4 ganyan + 6 ikili (sıralı) + 6 üçlü (sıralı).
+  4 ganyan + 6 ikili (sıralı, sürpriz at kombinasyonları dahil) + 6 üçlü
+  (sıralı: 1-2-3 / 1-3-2 / 2-1-3 + sürpriz at her pozisyonda).
 - Sonuçlanan koşularda bahisleri değerlendirir; ilk-3 ve banko isabetini ölçer.
 - **Kaynak öğrenmesi:** araştırma özetindeki uzman tablosu, at isabeti bazında
   domain istatistiğine çevrilir (server/data/bot/weights.json) ve araştırma

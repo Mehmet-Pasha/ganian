@@ -157,14 +157,40 @@ export function placeBets(botVeri, raceInfo, raceHorses = []) {
 
   // Ganyan: ilk 4'ün her biri kazanan (4)
   for (const o of order) add("ganyan", [o.no]);
-  // İkili (sıralı): banko ağırlıklı 6 kombinasyon (6)
-  for (const [a, b] of [
-    [0, 1], [1, 0], [0, 2], [2, 0], [0, 3], [1, 2],
-  ]) add("ikili", [order[a].no, order[b].no]);
-  // Üçlü (sıralı): ilk 3'ün tüm dizilişleri (6)
-  for (const [a, b, c] of [
-    [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
-  ]) add("uclu", [order[a].no, order[b].no, order[c].no]);
+
+  // Sürpriz at: analizdeki "Sürpriz/Value" ya da "Bomba" — kupa dışı genişletici.
+  // İkisi yoksa sıralamanın 4. adayı sürpriz görevi görür (permutasyon kapsamı).
+  const topNos = order.map((o) => o.no);
+  let S = botVeri?.surprise?.no;
+  if (!S || topNos.includes(S)) S = botVeri?.bomba?.no;
+  if (!S || topNos.includes(S)) S = order[3]?.no;
+  S = Number(S);
+  const Svar = Number.isFinite(S) && S > 0;
+
+  // İkili (sıralı): 1-2 · 2-1 · sürpriz-1 · 1-sürpriz · 1-3 · 2-3  (6)
+  add("ikili", [order[0].no, order[1].no]);
+  add("ikili", [order[1].no, order[0].no]);
+  if (Svar) {
+    add("ikili", [S, order[0].no]); // sürpriz kazanır, banko 2.
+    add("ikili", [order[0].no, S]); // banko kazanır, sürpriz 2.
+  }
+  if (order[2]) {
+    add("ikili", [order[0].no, order[2].no]); // banko + 3. aday
+    add("ikili", [order[1].no, order[2].no]); // 2 + 3
+  }
+
+  // Üçlü (sıralı): 1-2-3 · 1-3-2 · 2-1-3 · 1-2-S · S-1-2 · 1-S-2  (6)
+  if (order[2]) {
+    add("uclu", [order[0].no, order[1].no, order[2].no]); // tam sıra
+    add("uclu", [order[0].no, order[2].no, order[1].no]); // 2-3 ters
+    add("uclu", [order[1].no, order[0].no, order[2].no]); // 1-2 ters
+  }
+  if (Svar) {
+    // sürpriz at her pozisyonda: 3. bitirir / kazanır / 2. bitirir
+    add("uclu", [order[0].no, order[1].no, S]);
+    if (order[1]) add("uclu", [S, order[0].no, order[1].no]);
+    add("uclu", [order[0].no, S, order[1].no]);
+  }
 
   return bets;
 }

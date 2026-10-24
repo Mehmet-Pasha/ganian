@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { Menu, Sparkles, X } from "lucide-react";
+import { CalendarDays, FileText, Menu, Sparkles, Star, X, Bot as BotIcon, ListOrdered } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SearchBox } from "@/components/SearchBox";
 import { runningJobCount, subscribeJobs } from "@/lib/analysisRunner";
@@ -13,6 +13,15 @@ const NAV = [
   { to: "/analizler", label: "Analizler" },
   { to: "/kuponlar", label: "Kuponlarım" },
   { to: "/favoriler", label: "Favorilerim" },
+];
+
+// Mobilde alt tab bar: en sık kullanılan 5 sekme
+const TAB_BAR = [
+  { to: "/", label: "Program", icon: CalendarDays },
+  { to: "/sonuclar", label: "Sonuçlar", icon: ListOrdered },
+  { to: "/bot", label: "Bot", icon: BotIcon },
+  { to: "/analizler", label: "Analizler", icon: FileText },
+  { to: "/favoriler", label: "Favoriler", icon: Star },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -89,13 +98,45 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-6">{children}</main>
 
-      <footer className="border-t border-border/70 px-4 py-10 text-center text-xs text-subtle">
+      <footer className="border-t border-border/70 px-4 py-10 pb-24 text-center text-xs text-subtle md:pb-10">
         <p>
           Veriler Türkiye Jokey Kulübü (TJK) kaynaklarından derlenmektedir. Bahis oynamak için resmi e-Bayi
           platformunu kullanın.
         </p>
         <p className="mt-1">Ganian, TJK ile bağlantılı olmayan bağımsız bir bilgilendirme arayüzüdür.</p>
       </footer>
+
+      {/* Mobil alt sekme çubuğu — native uygulama hissi */}
+      <nav
+        aria-label="Alt menü"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      >
+        <div className="mx-auto grid max-w-lg grid-cols-5">
+          {TAB_BAR.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) =>
+                  cn(
+                    "flex min-w-0 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium",
+                    isActive ? "text-gold" : "text-muted",
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon className={cn("size-5", isActive && "drop-shadow-[0_0_6px_rgba(216,169,78,0.6)]")} />
+                    <span className="w-full truncate px-0.5 text-center">{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

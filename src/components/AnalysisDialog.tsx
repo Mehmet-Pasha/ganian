@@ -98,9 +98,9 @@ export function AnalysisDialog({
   const error = job?.state === "error" ? job.error : "";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-surface ring-1 ring-border"
+        className="flex h-[94dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface ring-1 ring-border sm:h-auto sm:max-h-[90dvh] sm:max-w-3xl sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">

@@ -160,7 +160,7 @@ export function BotPage() {
       {Object.keys(s.byType).length ? (
         <div className="rounded-xl ring-1 ring-border">
           <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">Tür bazlı isabet</div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="text-left text-xs text-subtle">
                 <th className="px-4 py-2">Tür</th>
@@ -184,6 +184,7 @@ export function BotPage() {
             </tbody>
           </table>
         </div>
+        </div>
       ) : null}
 
       {ozet.weights.length ? (
@@ -191,7 +192,7 @@ export function BotPage() {
           <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
             Kaynak isabet tablosu (bot öğrenmesi — ömür boyu + son 10 koşu penceresi)
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="text-left text-xs text-subtle">
                 <th className="px-4 py-2">Kaynak</th>
@@ -216,6 +217,7 @@ export function BotPage() {
             </tbody>
           </table>
         </div>
+        </div>
       ) : (
         <p className="rounded-lg bg-surface px-3 py-2 text-xs text-subtle ring-1 ring-border">
           Kaynak isabet tablosu henüz boş — botun/analizlerin sonuçlandığı koşuları izlemesi
@@ -228,7 +230,7 @@ export function BotPage() {
           <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
             Model/derinlik öğrenmesi — hangi kombinasyon daha isabetli?
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="text-left text-xs text-subtle">
                 <th className="px-4 py-2">Model</th>
@@ -251,6 +253,7 @@ export function BotPage() {
             </tbody>
           </table>
         </div>
+        </div>
       ) : null}
 
       {ozet.ogrenme.kalibrasyon.some((k) => k.n > 0) ? (
@@ -258,7 +261,7 @@ export function BotPage() {
           <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">
             Kalibrasyon — modelin yüksek verdiği yüzdeler gerçekten tutuyor mu?
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="text-left text-xs text-subtle">
                 <th className="px-4 py-2">Güven kovası</th>
@@ -278,6 +281,7 @@ export function BotPage() {
               ))}
             </tbody>
           </table>
+        </div>
           <p className="px-4 py-2 text-xs text-subtle">
             Sağlıklı kalibrasyon: yuksek kovası orta/dusuk'ten belirgin daha isabetli. Değilse
             modelin yüzdeleri güvenilir sayılmaz.
@@ -303,7 +307,7 @@ export function BotPage() {
       {ozet.bets.length ? (
         <div className="overflow-hidden rounded-xl ring-1 ring-border">
           <div className="border-b border-border px-4 py-2 text-sm font-medium text-fg">Son bahisler</div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="text-left text-xs text-subtle">
                 <th className="px-4 py-2">Tarih</th>
@@ -338,6 +342,7 @@ export function BotPage() {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       ) : (
         <p className="rounded-lg bg-surface px-3 py-2 text-xs text-subtle ring-1 ring-border">

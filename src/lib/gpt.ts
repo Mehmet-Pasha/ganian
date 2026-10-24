@@ -112,18 +112,19 @@ export function isOpenRouterKey(key: string): boolean {
 }
 
 // Araştırma derinliği: analizden AYRI bir katman. Düşük = en ucuz.
-export type ArastirmaDerinlik = "dusuk" | "orta" | "yuksek";
+export type ArastirmaDerinlik = "dusuk" | "orta" | "yuksek" | "ultra";
 export const ARASTIRMA_DERINLIK_STORAGE = "mahmuz:arastirma";
 export const ARASTIRMA_DERINLIKLERI = [
   { id: "dusuk", label: "Düşük — Tavily + nano özet (en ucuz)" },
   { id: "orta", label: "Orta — Perplexity Sonar (geniş tarama)" },
   { id: "yuksek", label: "Yüksek — Sonar + Tavily hibrit (en geniş kapsam)" },
+  { id: "ultra", label: "🌊 ULTRA — koşuya 5 dk kalana dek sürekli araştırma (maksimum)" },
 ] as const;
 
 export function getArastirmaDerinlik(): ArastirmaDerinlik {
   try {
     const v = (localStorage.getItem(ARASTIRMA_DERINLIK_STORAGE) || "").trim();
-    if (v === "dusuk" || v === "orta" || v === "yuksek") return v;
+    if (v === "dusuk" || v === "orta" || v === "yuksek" || v === "ultra") return v;
   } catch {
     /* yok say */
   }

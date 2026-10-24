@@ -17,7 +17,7 @@ export type SavedAnalysis = {
   analysis: string;
   meeting: Meeting;
   race: Race;
-  kaynak?: "analiz" | "bot";
+  kaynak?: "analiz" | "bot" | "ultra";
 };
 
 const ESKI_KEY = "mahmuz:analizler";

@@ -373,7 +373,7 @@ async function finalRapor(s: UltraSession, apiKey: string) {
 
   s.progress = "🌊 Mega rapor: tüm birikmiş veri modele gidiyor…";
   emit();
-  const { text: finalText } = await callGpt(base + ek, apiKey, s.model, "high", true);
+  const finalText = await callGpt(base + ek, apiKey, s.model, "high", true);
 
   s.result = finalText;
   await saveAnalysisRemote({

@@ -1,4 +1,6 @@
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, StopCircle, Waves, FileDown } from "lucide-react";
+import { startUltra, getUltraSession, durdurUltra, subscribeUltra, type UltraSession } from "@/lib/ultraRunner";
+import { formatKalan } from "@/lib/ultraZaman";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getJob, raceKeyOf, startAnalysis, subscribeJobs } from "@/lib/analysisRunner";
@@ -32,7 +34,13 @@ export function AnalysisDialog({
   const [model, setModel] = useState(() => getGptModel());
   const [effort, setEffort] = useState(() => getGptEffort());
   const [depth, setDepth] = useState(() => getArastirmaDerinlik());
+  const [ultraHata, setUltraHata] = useState("");
+  const [ultraS, setUltraS] = useState<UltraSession | undefined>(() =>
+    getUltraSession(raceKeyOf(meeting, race)),
+  );
   const [, setTick] = useState(0);
+
+  const raceKey = raceKeyOf(meeting, race);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -46,6 +54,7 @@ export function AnalysisDialog({
 
   // Arka plan motorundaki gelişmeleri canlı takip et
   useEffect(() => subscribeJobs(() => setTick((t) => t + 1)), []);
+  useEffect(() => subscribeUltra(() => setUltraS(getUltraSession(raceKey))), [raceKey]);
 
   function saveKey() {
     const k = keyInput.trim();
@@ -66,6 +75,15 @@ export function AnalysisDialog({
   }
 
   function runAnalysis() {
+    setUltraHata("");
+    if (depth === "ultra") {
+      try {
+        startUltra({ apiKey, meeting, race, model: model || "gpt-6-sol", effort });
+      } catch (e) {
+        setUltraHata(e instanceof Error ? e.message : "Ultra analiz başlatılamadı");
+      }
+      return;
+    }
     startAnalysis({ apiKey, meeting, race, model: model || "gpt-6-sol", effort });
   }
 
@@ -98,7 +116,65 @@ export function AnalysisDialog({
         </div>
 
         <div className="overflow-y-auto px-4 py-4">
-          {stage === "ready" ? (
+          {ultraS && (ultraS.faz === "temel" || ultraS.faz === "takip") ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold ring-1 ring-gold/40">
+                <Waves className="size-4 shrink-0 animate-pulse" />
+                <span className="font-medium">🌊 ULTRA oturum aktif</span>
+              </div>
+              <p className="whitespace-pre-wrap text-sm text-fg">{ultraS.progress}</p>
+              <div className="space-y-1.5">
+                {ultraS.turKayitlari
+                  .slice(-6)
+                  .reverse()
+                  .map((t) => (
+                    <div key={t.ts} className="rounded-lg bg-bg px-3 py-2 text-xs text-muted ring-1 ring-border">
+                      {t.baslik}
+                    </div>
+                  ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => durdurUltra(raceKey)}
+                  className="inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm text-fg ring-1 ring-border hover:bg-surface2"
+                >
+                  <StopCircle className="size-4" />
+                  Durdur
+                </button>
+                <Link
+                  to="/analizler"
+                  onClick={onClose}
+                  className="inline-flex h-9 items-center rounded-full px-4 text-sm text-gold underline underline-offset-4"
+                >
+                  Analizler sekmesini aç
+                </Link>
+              </div>
+              <p className="text-xs text-subtle">
+                Pencereyi kapatıp sayfayı yenilesen bile oturum devam eder (durum cihazında saklanır).
+                Koşu başlamadan 5 dk önce son tur yapılıp nihai mega rapor otomatik hazırlanır ve Analizler
+                sekmesine düşer.
+              </p>
+            </div>
+          ) : ultraS && ultraS.faz === "bitti" && ultraS.result ? (
+            <div className="space-y-3">
+              <div className="whitespace-pre-wrap text-sm leading-relaxed text-fg">{ultraS.result}</div>
+              <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    printReport(buildReportHtml(ultraS.meeting, ultraS.race, ultraS.result, ultraS.model, "high"))
+                  }
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gold px-4 text-sm font-medium text-bg hover:bg-gold2"
+                >
+                  <FileDown className="size-4" />
+                  PDF Rapor İndir
+                </button>
+              </div>
+              <p className="text-xs text-subtle">Bu rapor Analizler sekmesine kaydedildi (ULTRA).</p>
+            </div>
+          ) : (
+          stage === "ready" ? (
             <div className="space-y-3 text-sm">
               <p className="text-muted">
                 <span className="font-medium text-fg">{race.horses.length} at</span> için TJK profilleri (son
@@ -200,6 +276,14 @@ export function AnalysisDialog({
                     Düşük: Tavily + nano özet (ücretsiz kota). Orta/Yüksek için sunucuda
                     OPENROUTER_API_KEY gerekir; yoksa otomatik Düşük'e düşer.
                   </span>
+                  {depth === "ultra" ? (
+                    <span className="mt-1 block text-[11px] text-gold">
+                      🌊 ULTRA: başlatınca koşu başlamadan 5 dk öncesine kadar sürekli araştırma
+                      yapılır — saatler sürebilir ve çok sayıda sorgu harcanır. Sekmeyi kapatıp
+                      yenilesen bile oturum kaldığı yerden devam eder; nihai rapor otomatik
+                      kaydedilir ve bot kuponu kurulur.
+                    </span>
+                  ) : null}
                 </label>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -304,7 +388,7 @@ export function AnalysisDialog({
                 </button>
               </div>
             </div>
-          )}
+          ))}
         </div>
       </div>
     </div>

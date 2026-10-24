@@ -138,6 +138,8 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
     let arastirmaVerisi = "";
     try {
       const depth = getArastirmaDerinlik();
+      // "ultra" istemci modudur; normal boru hattı yüksek derinlikle çalışır
+      const efektifDepth = depth === "ultra" ? "yuksek" : depth;
       const depthLabel = depth === "dusuk" ? "düşük" : depth === "orta" ? "orta" : "yüksek";
       job.progress = `Web araştırması (${depthLabel})…`;
       emit();
@@ -147,7 +149,7 @@ async function runJobBody(job: Job, apiKey: string, notify: boolean): Promise<vo
           ? [buildResearchPromptSonDakika(meeting, race), buildResearchPromptUzman(meeting, race)]
           : [buildResearchPromptOrta(meeting, race)];
       const research = await postResearch({
-        depth,
+        depth: efektifDepth,
         queries: buildResearchQueries(meeting, race),
         sonarPrompts,
       });

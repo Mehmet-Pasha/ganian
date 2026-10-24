@@ -150,9 +150,27 @@ npm run server     # Express hem /api'yi hem dist/'i tek portta (8787) sunar
 Ardından `http://localhost:8787` adresinden tüm site (API + frontend) tek
 sunucudan servis edilir. `PORT` ortam değişkeniyle portu değiştirebilirsiniz.
 
-## Sanal Bahis Botu (v1.2)
+## 🌊 Ultra Analiz
 
-Uygulamada **an-be-an çalışan bir bahis botu** vardır (`server/bot.mjs`). Analiz ve
+Analiz kutusundaki derinlik seçiminde **ULTRA** seviyesi: koşu başlamadan 5 dakika
+öncesine kadar kesintisiz, birikimli ve akıllı web araştırması.
+
+- **Akıllı zamanlayıcı:** koşuya kalan süreye göre tur aralığı (4 sa+ → 30 dk,
+  1-4 sa → 15 dk, 30-60 dk → 7 dk, <30 dk → 3 dk); son tur koşu -5 dk'da.
+- **Birikimli:** her tur yalnızca YENİ bilgi arar (bilinenler prompt'a girer,
+  tekrar etme yasak); bulgular kronolojik arşivde üst üste birikir, tekrarlar
+  filtrelenir, özet şişerse sıkıştırılır.
+- **Kaynak rotasyonu:** son dakika/resmi duyurular → jokey & takı → pist & hava →
+  uzman yorumları → AGF/bahis oranı hareketleri, sırayla taranır.
+- **Nihai mega rapor:** koşu -5 dk'da tüm birikmiş veri + koşu profili tek mega
+  prompt olarak ana modele gider (yüksek çaba) → rapor depoya "ULTRA" etiketiyle
+  kaydedilir ve bot kuponu otomatik kurulur.
+- **Dayanıklı:** oturum durumu cihazda saklanır; sayfa yenilense/bilgisayar
+  kapansa bile kaldığı yerden devam eder. Tarayıcıda çalışır (sekme açık kalmalı).
+- **Sağlık:** 5 üst üste hata → oturum durur, sebep gösterilir; nihai rapor
+  başarısızsa birikmiş bulgular "yarım rapor" olarak saklanır.
+
+## Sanal Bahis Botu (v1.2)Uygulamada **an-be-an çalışan bir bahis botu** vardır (`server/bot.mjs`). Analiz ve
 araştırma hattına dokunmaz; onların çıktısını tüketir:
 
 - Her koşu için analistin rapor sonundaki **"## 🤖 Bot Verisi"** JSON bloğunu okur

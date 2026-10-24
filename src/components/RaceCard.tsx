@@ -202,6 +202,7 @@ function HorseRow({
               {nameLink}
               <p className="text-xs text-muted">
                 {age.label || horse.ageText}
+                {horse.stall ? ` · K${horse.stall}` : ""}
                 {horse.sire ? ` · ${horse.sire} — ${horse.dam}` : ""}
               </p>
             </div>

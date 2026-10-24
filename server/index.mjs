@@ -42,6 +42,78 @@ try {
   /* .env yoksa sorun değil */
 }
 const app = express();
+
+// ---------------------------------------------------------------------------
+// GİRİŞ PANELİ — SADECE .env'de GIRIS_SIFRESI tanımlıysa devreye girer.
+// (Yerel geliştirmede tanımlı değildir → davranış değişmez; VPS'te tanımlıdır
+//  → tüm site + API şifre arkasında, kredi yakılamaz.)
+// ---------------------------------------------------------------------------
+import crypto from "node:crypto";
+
+const GIRIS_SIFRESI = (process.env.GIRIS_SIFRESI || "").trim();
+if (GIRIS_SIFRESI) {
+  const GIRIS_DIR = path.join(__dirname, "data");
+  const GIRIS_DOSYA = path.join(GIRIS_DIR, "giris-oturumlari.json");
+  const girisOturumlari = new Set(
+    (() => {
+      try {
+        return JSON.parse(fs.readFileSync(GIRIS_DOSYA, "utf8"));
+      } catch {
+        return [];
+      }
+    })(),
+  );
+  const oturumKaydet = () => {
+    fs.mkdirSync(GIRIS_DIR, { recursive: true });
+    fs.writeFileSync(GIRIS_DOSYA, JSON.stringify([...girisOturumlari]));
+  };
+  const cerezToken = (req) => {
+    const m = /(?:^|;\s*)ganian=([a-f0-9]{48})/.exec(req.headers.cookie || "");
+    return m ? m[1] : "";
+  };
+  const GIRIS_HTML = `<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ganian — Giriş</title><style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1a13;font-family:Inter,system-ui,sans-serif;color:#eef3ea}
+.kutu{width:min(380px,92vw);background:#122419;border:1px solid #24422f;border-radius:14px;padding:34px 30px;text-align:center}
+.logo{font-family:Georgia,serif;font-size:30px;letter-spacing:.5px}
+.logo b{color:#d8a94e}
+.alt{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#6f8a72;margin-top:4px}
+input{width:100%;margin-top:26px;height:46px;border-radius:10px;border:1px solid #24422f;background:#0b1a13;color:#eef3ea;font-size:15px;text-align:center;outline:none}
+input:focus{border-color:#d8a94e}
+button{width:100%;margin-top:14px;height:46px;border:none;border-radius:999px;background:#eef3ea;color:#0b1a13;font-size:14px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5}
+.hata{margin-top:12px;color:#e0654f;font-size:12px;min-height:16px}
+</style></head><body><div class="kutu">
+<div class="logo">Gani<b>an</b></div><div class="alt">ÖZEL ERİŞİM</div>
+<input id="s" type="password" placeholder="Şifre" autofocus onkeydown="if(event.key==='Enter')gir()"/>
+<button id="btn" onclick="gir()">Giriş</button><div class="hata" id="h"></div>
+</div><script>
+async function gir(){const s=document.getElementById('s').value;const b=document.getElementById('btn');b.disabled=true;try{const r=await fetch('/api/giris',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sifre:s})});if(r.ok){location.href='/';return}document.getElementById('h').textContent='Şifre yanlış'}catch(e){document.getElementById('h').textContent='Sunucuya ulaşılamadı'}b.disabled=false}
+</script></body></html>`;
+
+  app.use((req, res, next) => {
+    const yol = req.path;
+    if (yol === "/api/saglik") return next(); // healthcheck herkese açık
+    if (girisOturumlari.has(cerezToken(req))) return next();
+    if (yol === "/api/giris") return next();
+    if (yol.startsWith("/api/")) return res.status(401).json({ error: "Şifre gerekli" });
+    return res.type("html").send(GIRIS_HTML);
+  });
+
+  app.post("/api/giris", (req, res) => {
+    const sifre = String(req.body?.sifre || "").trim();
+    if (sifre !== GIRIS_SIFRESI) return res.status(401).json({ error: "Şifre yanlış" });
+    const token = crypto.randomBytes(24).toString("hex");
+    girisOturumlari.add(token);
+    oturumKaydet();
+    res.setHeader("Set-Cookie", `ganian=${token}; HttpOnly; Path=/; Max-Age=2592000; SameSite=Lax`);
+    res.json({ ok: true });
+  });
+
+  console.log("[giriş] şifre paneli aktif — tüm site + API korumalı");
+}
+
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 

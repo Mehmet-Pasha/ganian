@@ -826,3 +826,71 @@ export function parseResearchSources(digest: string): ResearchSourceRow[] {
   }
   return rows;
 }
+
+// ---------------------------------------------------------------------------
+// ULTRA analiz — artımlı araştırma turu prompt'u ve nihai raporun arşiv eki.
+// ---------------------------------------------------------------------------
+
+const ULTRA_ACI_ADRESI: Record<string, string> = {
+  "son-dakika": "Son dakika / resmi duyurular (TJK, hipodrom: çıkma, iptal, saat değişikliği)",
+  "jokey-taki": "Jokey değişikliği & takı değişiklikleri (gözlük, dil bağı, burun bandı, ağırlık)",
+  "pist-hava": "Pist & hava koşulları (yağmur, pist revizyonu, ağırlık ölçümü)",
+  "uzman": "Uzman yorumları & tahmin siteleri & forum/sosyal paylaşımlar",
+  "oran-agf": "AGF & bahis oranı hareketleri (para nereye kayıyor)",
+};
+
+export function ultraAcilar(): string[] {
+  return Object.keys(ULTRA_ACI_ADRESI);
+}
+
+export function ultraAciAdi(aci: string): string {
+  return ULTRA_ACI_ADRESI[aci] || aci;
+}
+
+// Artımlı tur prompt'u: bilinenleri TEKRAR ETMEZ, yalnızca YENİ gelişmeleri arar.
+export function buildUltraTurPrompt(
+  meeting: Meeting,
+  race: Race,
+  bilinenOzet: string,
+  aci: string,
+): string {
+  // Bilinenler özeti şişerse EN YENİ kısmı tut (araştırma "üstüne katar" mantığı)
+  const ozet = String(bilinenOzet || "").slice(-6000);
+  return [
+    "GÖREVİN: Türkiye at yarışı araştırmacısısın. Bu bir TAKİP taramasıdır: bu koşu daha önce araştırıldı ve şimdiye kadarki bulgular aşağıda. SENİN İŞİN YALNIZCA YENİ BİLGİ BULMAK.",
+    "",
+    araştırmaKünye(meeting, race),
+    "",
+    "## ŞU ANA KADAR BİLİNENLER (bunları TEKRAR RAPORLAMA — yalnızca bunların DIŞINDA kalan yenileri ara)",
+    ozet || "Şu ana kadar kayda değer bulgu yok.",
+    "",
+    `## BU TURUN ODAĞI: ${ultraAciAdi(aci)}`,
+    "Bu odağın dışında da yolda yeni bir gelişime rastlarsan onu da raporla; ama öncelik bu odak.",
+    "",
+    "ÇIKTI ŞEMASI (Türkçe, kompakt):",
+    "- Her bulgu: `YENİ — <bulgu> (kaynak adı, URL, yayın tarihi)`",
+    "- Yeni bulgu yoksa: `YENİ BULGU YOK` (tek satır, uydurma yasak)",
+    "- Rastladığın başka koşuların haberlerini RAPORLAMA (yalnızca bu koşu).",
+    "Toplam ≤400 kelime.",
+  ].join("\n");
+}
+
+// Nihai raporun ek bölümü: tüm turların kronolojik bulguları.
+export function buildUltraFinalEk(bulgularMetin: string): string {
+  return [
+    "",
+    "# 🌊 ULTRA ARŞİV — TÜM ARAŞTIRMA TURLARININ KRONOLOJİK BULGULARI",
+    "",
+    "Aşağıda, bu koşu için koşu öncesinde saatler boyunca yapılan sürekli araştırmanın",
+    "tüm bulguları kronolojik sırayla listelenmiştir. SENİN GÖREVİN: bu arşivdeki HER",
+    "bulguyu analizine entegre etmek; erken turlardaki bilgi ile arşivin sonundaki",
+    "(en güncel) bilgi çelişirse SON DURUMU esas almak ve farkı 'Araştırma Notları'",
+    "bölümünde belirtmek. Arşivde bulunmayan konularda spekülasyon yapma.",
+    "",
+    "## BULGULAR (kronolojik)",
+    "",
+    bulgularMetin || "(arşiv boş)",
+    "",
+    "Arşivin tamamını okudun; analizinde özellikle SON turdaki bulgulara öncelik ver.",
+  ].join("\n");
+}
